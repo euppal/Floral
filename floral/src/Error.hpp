@@ -15,7 +15,8 @@
 namespace Floral {
     struct Error {
         enum Domain {
-            parseDomain
+            parseDomain,
+            generalRejectionDomain,
         };
         Domain domain;
         std::string text;
@@ -26,7 +27,7 @@ namespace Floral {
         void print() const;
         
     private:
-        std::string _domainStrings[1] { "Parsing Error" };
+        std::string _domainStrings[2] { "Parsing Error", "General Rejection Error" };
     };
 }
 

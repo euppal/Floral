@@ -12,13 +12,16 @@
 
 #include "Sources.hpp"
 
-void testCompile() {
+double testCompile() {
+    Timer t;
+    
     // Lexing
     std::string result;
     Floral::read("/Users/ethanuppal/Library/Mobile Documents/com~apple~CloudDocs/Xcode Projects/floral/floral/proj/main.floral", result);
     if (result.empty()) {
+        double elapsed { t.elapsed() };
         std::cout << "Unable to locate file at path\n";
-        return;
+        return elapsed;
     }
     
     Floral::Lexer lexer { result };
@@ -26,7 +29,6 @@ void testCompile() {
     // Tokens into vector
     std::vector<Floral::Token> tokens;
     for (const auto &tkn: lexer.lex()) {
-        tkn.print();
         tokens.push_back(tkn);
     }
     
@@ -35,34 +37,36 @@ void testCompile() {
     Floral::File *file { parser.parse() };
     
     if (parser.hasErrors()) {
+        double elapsed { t.elapsed() };
         for (auto error: parser.errors()) {
             error.print();
         }
-        return;
+        return elapsed;
     }
     
     file->setPath("/Users/ethanuppal/Library/Mobile Documents/com~apple~CloudDocs/Xcode Projects/floral/floral/proj/main.floral");
-    file->print();
-    file->dump();
 
     // Compiling
     Floral::Compiler compiler;
     compiler.setOutputDestination("asm_out.s");
     compiler.compile(file);
+    double elapsed { t.elapsed() };
+    
+    // View file node
+    file->print();
+    file->dump();
     
     // Delete dynamically allocated memory
     delete file;
-}
-
-void _main() {
-    Floral::_setup();
-    testCompile();
-    Floral::_free();
+    
+    return elapsed;
 }
 
 int main() {
-    Timer t;
-    _main();
-    std::cout << "Compiliation attempt finished in " << t.elapsed() << " seconds\n";
+    Floral::_setup();
+    auto elapsed { testCompile() };
+    std::cout << "Compiliation attempt finished in " << elapsed << " seconds\n";
+    Floral::_free();
+
     return 0;
 }

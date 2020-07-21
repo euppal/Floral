@@ -74,6 +74,7 @@
 		5894DF9E24BE3EDB000C8E05 /* Type.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Type.cpp; sourceTree = "<group>"; };
 		5894DF9F24BE3EDB000C8E05 /* Token.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Token.cpp; sourceTree = "<group>"; };
 		5894DFB824BE604C000C8E05 /* Other.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Other.h; sourceTree = "<group>"; };
+		5894DFCD24BFA636000C8E05 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +91,7 @@
 		587D161C24A9306100D20ED2 = {
 			isa = PBXGroup;
 			children = (
+				5894DFCD24BFA636000C8E05 /* README.md */,
 				5894DF8224BE3EDB000C8E05 /* floral */,
 				587D162624A9306100D20ED2 /* Products */,
 			);

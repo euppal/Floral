@@ -31,10 +31,9 @@ namespace Floral {
     enum class TokenType {
         invalid,
         identifier,
-        leftParenthesis,
-        rightParenthesis,
-        leftBrace,
-        rightBrace,
+        leftParenthesis, rightParenthesis,
+        leftBrace, rightBrace,
+        leftBracket, rightBracket,
         semicolon, colon, comma,
         func,
         simpleString, boolTrue, boolFalse, numIntDec, numIntHex, numFloating,
@@ -49,7 +48,7 @@ namespace Floral {
         global, let, var
     };
     const std::string tokenTypeStrings[] {
-        "invalid", "identifier", "leftParenthesis", "rightParenthesis", "leftBrace", "rightBrace", "semicolon", "colon", "comma", "func",
+        "invalid", "identifier", "leftParenthesis", "rightParenthesis", "leftBrace", "rightBrace", "leftBracket", "rightBracket", "semicolon", "colon", "comma", "func",
         "simpleString", "boolTrue", "boolFalse", "decimalInteger", "hexadecimalInteger", "floatingPointNumber",
         "int64Type", "uint64Type",
         "charType", "ucharType",

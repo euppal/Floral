@@ -32,11 +32,15 @@ namespace Floral {
         Token peek();
         void advance();
         bool eof();
-        Token match(TokenType type);
+        Token match(TokenType type, const std::string& withinCtx);
         void synchronize();
         
         Type* type();
+        Initializer* initializer();
         Function* function();
+        GlobalDeclaration* global();
+        LetDeclaration* let();
+        VarDeclaration* var();
         Statement* statement();
         CallStatement* callStm();
         EmptyStatment* emptyStm();

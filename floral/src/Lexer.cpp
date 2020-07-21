@@ -167,6 +167,12 @@ namespace Floral {
             case '}':
                 tmp = _tkn(TokenType::rightBrace, "}");
                 break;
+            case '[':
+                tmp = _tkn(TokenType::leftBracket, "[");
+                break;
+            case ']':
+                tmp = _tkn(TokenType::rightBracket, "]");
+                break;
             case ';':
                 tmp = _tkn(TokenType::semicolon, ";");
                 break;

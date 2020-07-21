@@ -107,7 +107,7 @@ namespace Floral {
     void Function::print() {
         std::cout << "Function at loc ";
         _loc.describe(' ');
-        std::cout << "named " << _name.contents << "(";
+        std::cout << "named '" << _name.contents << "(";
         for (size_t i {}; i < _parameters.size(); ++i) {
             std::cout << _parameters[i].name.contents << ": ";
             _parameters[i].type->print();
@@ -119,7 +119,7 @@ namespace Floral {
             std::cout << "Void";
         else
             _retType->print();
-        std::cout << '\n';
+        std::cout << "'\n";
     }
     void Function::setBody(const std::vector<Statement*> &body) {
         _body = body;
@@ -135,6 +135,37 @@ namespace Floral {
     }
     const Type* Function::returnType() const {
         return _retType;
+    }
+    Initializer::Initializer(InitializerType type): type(type) {}
+    ZeroInitializer::ZeroInitializer(): Initializer(InitializerType::zero) {}
+    DirectInitializer::DirectInitializer(Expression* expr): Initializer(InitializerType::direct), expr(expr) {}
+    CopyInitializer::CopyInitializer(Expression* expr): Initializer(InitializerType::copy), expr(expr) {}
+    GlobalDeclaration::GlobalDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init): Declaration(loc), name(name), type(type), init(init) {}
+    GlobalDeclaration::~GlobalDeclaration() {
+        delete type;
+        delete init;
+    }
+    void GlobalDeclaration::print() {
+        std::cout << "Global declaration of '" << name.contents << "' at loc ";
+        _loc.describe();
+    }
+    LetDeclaration::LetDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init): Declaration(loc), name(name), type(type), init(init) {}
+    LetDeclaration::~LetDeclaration() {
+        delete type;
+        delete init;
+    }
+    void LetDeclaration::print() {
+        std::cout << "Let declaration of '" << name.contents << "' at loc ";
+        _loc.describe();
+    }
+    VarDeclaration::VarDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init): Declaration(loc), name(name), type(type), init(init) {}
+    VarDeclaration::~VarDeclaration() {
+        delete type;
+        delete init;
+    }
+    void VarDeclaration::print() {
+        std::cout << "Var declaration of '" << name.contents << "' at loc ";
+        _loc.describe();
     }
 
 

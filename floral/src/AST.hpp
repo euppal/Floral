@@ -36,7 +36,7 @@ namespace Floral {
         Node(TextRegion loc);
         
     public:
-        virtual void print();
+        virtual void print() = 0;
     };
     class Function;
     class File: public Node {
@@ -172,15 +172,63 @@ namespace Floral {
         
         virtual void print() override;
     };
+    struct Initializer {
+        enum InitializerType {
+            zero, direct, copy
+        };
+        const InitializerType type;
+        
+    protected:
+        Initializer(const InitializerType type);
+    };
+    class ZeroInitializer: public Initializer {
+    public:
+        ZeroInitializer();
+    };
+    class DirectInitializer: public Initializer {
+        Expression* expr;
+        
+    public:
+        DirectInitializer(Expression* expr);
+    };
+    class CopyInitializer: public Initializer {
+        Expression* expr;
+        
+    public:
+        CopyInitializer(Expression* expr);
+    };
     class GlobalDeclaration: public Declaration {
         Token name;
-        Type type;
+        Type* type;
+        Initializer* init;
+        
+    public:
+        GlobalDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init);
+        ~GlobalDeclaration();
+        
+        virtual void print() override;
     };
     class LetDeclaration: public Declaration {
+        Token name;
+        Type* type;
+        Initializer* init;
+
+    public:
+        LetDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init);
+        ~LetDeclaration();
         
+        virtual void print() override;
     };
     class VarDeclaration: public Declaration {
+        Token name;
+        Type* type;
+        Initializer* init;
+
+    public:
+        VarDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init);
+        ~VarDeclaration();
         
+        virtual void print() override;
     };
 }
 
