@@ -1,13 +1,13 @@
 //
-//  Files.h
+//  File IO.hpp
 //  floral
 //
 //  Created by Ethan Uppal on 6/29/20.
 //  Copyright © 2020 Ethan Uppal. All rights reserved.
 //
 
-#ifndef Files_h
-#define Files_h
+#ifndef File_IO_h
+#define File_IO_h
 
 #include <string>
 

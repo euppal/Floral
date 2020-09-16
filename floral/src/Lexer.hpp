@@ -18,35 +18,36 @@ namespace Floral {
         size_t pos {};
         size_t line {1};
         
-        public:
+    public:
         Lexer(const std::string &code);
-        void reset();
+        void reset(void);
         
-        private:
-        char current();
-        char peek();
-        void advance();
+    private:
+        char current(void);
+        char peek(void);
+        void advance(void);
         void next(int c);
-        bool eof();
-        TokenLoc loc() const;
+        bool eof(size_t inset = 0);
+        TokenLoc loc(void) const;
         
-        bool isSpaceChar();
-        bool isIdentifierStart();
-        bool isIdentifierChar();
-        bool isDigitChar();
-        bool isHexDigitChar();
-        bool isNumTermin();
-        bool isQuoteChar();
-        bool isDotChar();
+        bool isSpaceChar(void);
+        bool isIdentifierStart(void);
+        bool isIdentifierChar(void);
+        bool isDigitChar(void);
+        bool isHexDigitChar(void);
+        bool isNumTermin(void);
+        bool isQuoteChar(void);
+        bool isDotChar(void);
         
-        Token multichar();
-        Token simpleStr();
-        Token number();
+        Token multichar(void);
+        Token simpleStr(void);
+        Token number(void);
+        void comments(void);
         
         Token _tkn(TokenType type, const std::string &content);
-        Token drive();
+        Token drive(void);
         
-        public:
+    public:
         std::vector<Token> lex();
     };
 }

@@ -1,12 +1,12 @@
 //
-//  Files.cpp
+//  File IO.cpp
 //  floral
 //
 //  Created by Ethan Uppal on 6/29/20.
 //  Copyright © 2020 Ethan Uppal. All rights reserved.
 //
 
-#include "Files.hpp"
+#include "File IO.hpp"
 #include <string>
 #include <iostream>
 #include <fstream>

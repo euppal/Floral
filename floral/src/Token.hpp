@@ -12,11 +12,9 @@
 #include <string>
 #include <iostream>
 #include <unordered_map>
-#include "Operator.hpp"
 #include <memory>
 
 namespace Floral {
- 
     class TokenLoc {
         size_t pos;
         size_t line;
@@ -34,7 +32,7 @@ namespace Floral {
         leftParenthesis, rightParenthesis,
         leftBrace, rightBrace,
         leftBracket, rightBracket,
-        semicolon, colon, comma,
+        semicolon, colon, comma, arrow,
         func,
         simpleString, boolTrue, boolFalse, numIntDec, numIntHex, numFloating,
         int64Type, uint64Type,
@@ -44,11 +42,13 @@ namespace Floral {
         boolType,
         stringType, cStringType,
         voidType,
-        plus, minus, multiply, divide, assign, notOp, andOp, orOp, modulus, xorOp, less, greater, lessEqual, greaterEqual, equal, unequal,
-        global, let, var
+        plus, minus, multiply, divide, assign, notOp, andOp, orOp, modulus, xorOp, less, greater, lessEqual, greaterEqual, equal, unequal, power,
+        global, let, var,
+        return_, using_, const_
     };
+    bool tokenTypeIsOperator(TokenType type);
     const std::string tokenTypeStrings[] {
-        "invalid", "identifier", "leftParenthesis", "rightParenthesis", "leftBrace", "rightBrace", "leftBracket", "rightBracket", "semicolon", "colon", "comma", "func",
+        "invalid", "identifier", "leftParenthesis", "rightParenthesis", "leftBrace", "rightBrace", "leftBracket", "rightBracket", "semicolon", "colon", "comma", "arrow", "func",
         "simpleString", "boolTrue", "boolFalse", "decimalInteger", "hexadecimalInteger", "floatingPointNumber",
         "int64Type", "uint64Type",
         "charType", "ucharType",
@@ -57,8 +57,9 @@ namespace Floral {
         "boolType",
         "stringType", "cStringType",
         "voidType",
-        "plus", "minus", "multiply", "divide", "assign", "not", "and", "or", "modulus", "xor", "less", "greater", "lessEqual", "greaterEqual", "equal", "unequal",
-        "global", "let", "var"
+        "plus", "minus", "multiply", "divide", "assign", "not", "and", "or", "modulus", "xor", "less", "greater", "lessEqual", "greaterEqual", "equal", "unequal", "power"
+        "global", "let", "var",
+        "return", "using", "const"
     };
 
     const std::unordered_map<std::string, TokenType> keywords = {
@@ -85,7 +86,10 @@ namespace Floral {
         { "Bool", TokenType::boolType },
         { "String", TokenType::stringType },
         { "CString", TokenType::cStringType },
-        { "Void", TokenType::voidType }
+        { "Void", TokenType::voidType },
+        { "return", TokenType::return_ },
+        { "using", TokenType::using_ },
+        { "const", TokenType::const_ }
     };
 
     std::string tokenTypeDescription(TokenType type);
@@ -95,8 +99,9 @@ namespace Floral {
         TokenType type;
         std::string contents;
            
-        public:
+    public:
         Token(TokenLoc loc, TokenType type, const std::string& contents);
+        friend bool operator ==(const Token& lhs, const Token& rhs);
         
         void print() const;
         size_t& pos();
@@ -110,10 +115,9 @@ namespace Floral {
         bool isType() const;
         bool isValid() const;
         bool isInvalid() const;
+        bool isId() const;
         
         static Token* invalid;
-        
-//        std::unique_ptr<Operator> toOperator() const;
     };
 }
 

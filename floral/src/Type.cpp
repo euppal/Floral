@@ -7,16 +7,18 @@
 //
 
 #include "Type.hpp"
+#include <cassert>
+#include <numeric>
 
 namespace Floral {
-    Type::Type(Token* value): _tknValue(value), _arrType(nullptr), _ptrType(nullptr), _tupleType{}, _functionType{} {}
-    Type::Type(Type* value, bool isPtr): _tknValue(nullptr), _arrType(isPtr ? nullptr : value), _ptrType(isPtr ? value : nullptr), _tupleType{}, _functionType{} {}
-    Type::Type(Type* tuple[MAX_TUPLE_SIZE], const size_t size): _tknValue(nullptr), _arrType(nullptr), _ptrType(nullptr), _functionType{} {
+    Type::Type(Token* value, bool isConst): _tknValue(value), _arrType(nullptr), _ptrType(nullptr), _tupleType{}, _functionType{}, _isConst(isConst) {}
+    Type::Type(Type* value, bool isPtr, bool isConst): _tknValue(nullptr), _arrType(isPtr ? nullptr : value), _ptrType(isPtr ? value : nullptr), _tupleType{}, _functionType{}, _isConst(isConst) {}
+    Type::Type(Type* tuple[MAX_TUPLE_SIZE], const size_t size, bool isConst): _tknValue(nullptr), _arrType(nullptr), _ptrType(nullptr), _functionType{}, _isConst(isConst) {
         for (size_t i {}; i < size; ++i)
             _tupleType[i] = tuple[i];
         _tupleLen = size;
     }
-    Type::Type(Type* params, Type* ret): _tknValue(nullptr), _arrType(nullptr), _ptrType(nullptr), _tupleType{}, _functionType{ params, ret }, _isFunctionType(true) {}
+    Type::Type(Type* params, Type* ret, bool isConst): _tknValue(nullptr), _arrType(nullptr), _ptrType(nullptr), _tupleType{}, _functionType{ params, ret }, _isFunctionType(true), _isConst(isConst) {}
     Type::~Type() {
         if (isToken())
             delete _tknValue;
@@ -39,25 +41,33 @@ namespace Floral {
         return _tknValue;
     }
     void Type::print() const {
+        std::cout << des();
+    }
+    const std::string Type::des() const {
+        std::string str;
+        if (_isConst) str += "const ";
         if (isToken())
-            std::cout << _tknValue->contents;
+            str += _tknValue->contents;
         else if (isArray()) {
-            std::cout << '[';
-            _arrType->print();
-            std::cout << ']';
+            str.push_back('[');
+            str += _arrType->des();
+            str.push_back(']');
         } else if (isPointer()) {
-            std::cout << '&';
-            _ptrType->print();
+            str.push_back('&');
+            str += _ptrType->des();
         } else if (isTuple()) {
             std::cout << '(';
-            for (size_t i {}; i < _tupleLen; ++i)
-                _tupleType[i]->print();
+            for (size_t i {}; i < _tupleLen; ++i) {
+                str += _tupleType[i]->des();
+                if (i + 1 < _tupleLen) str += ", ";
+            }
             std::cout << ')';
         } else if (isFunction()) {
-            _functionType[0]->print();
-            std::cout << ": ";
-            _functionType[1]->print();
+            str += _functionType[0]->des();
+            str += " -> ";
+            str += _functionType[1]->des();
         }
+        return str;
     }
 
     bool Type::isIncomplete() const {
@@ -68,6 +78,24 @@ namespace Floral {
     }
     bool Type::isUInt() const {
         return _tknValue && _tknValue->type == TokenType::uint64Type;
+    }
+    bool Type::isInt32() const {
+        return _tknValue && _tknValue->type == TokenType::int32Type;
+    }
+    bool Type::isUInt32() const {
+        return _tknValue && _tknValue->type == TokenType::uint32Type;
+    }
+    bool Type::isShort() const {
+        return _tknValue && _tknValue->type == TokenType::shortType;
+    }
+    bool Type::isUShort() const {
+        return _tknValue && _tknValue->type == TokenType::ushortType;
+    }
+    bool Type::isChar() const {
+        return _tknValue && _tknValue->type == TokenType::charType;
+    }
+    bool Type::isUChar() const {
+        return _tknValue && _tknValue->type == TokenType::ucharType;
     }
     bool Type::isVoid() const {
         return _tknValue && _tknValue->type == TokenType::voidType;
@@ -88,4 +116,115 @@ namespace Floral {
     bool Type::isTuple() const {
         return _tupleLen > 0;
     }
+
+    bool Type::isString() const {
+        return _tknValue && _tknValue->type == TokenType::stringType;
+    }
+    bool Type::isBool() const {
+        return _tknValue && _tknValue->type == TokenType::boolType;
+    }
+
+    bool Type::isNumber() const {
+        return _tknValue && (
+            _tknValue->type == TokenType::int64Type ||
+            _tknValue->type == TokenType::uint64Type ||
+            _tknValue->type == TokenType::uint64Type ||
+            _tknValue->type == TokenType::int32Type ||
+            _tknValue->type == TokenType::uint32Type ||
+            _tknValue->type == TokenType::shortType ||
+            _tknValue->type == TokenType::ushortType ||
+            _tknValue->type == TokenType::charType ||
+            _tknValue->type == TokenType::ucharType // || float types...
+        );
+    }
+
+    bool Type::isInteger() const {
+        return isPointer() || (_tknValue && (
+            _tknValue->type == TokenType::int64Type ||
+            _tknValue->type == TokenType::uint64Type ||
+            _tknValue->type == TokenType::uint64Type ||
+            _tknValue->type == TokenType::int32Type ||
+            _tknValue->type == TokenType::uint32Type ||
+            _tknValue->type == TokenType::shortType ||
+            _tknValue->type == TokenType::ushortType ||
+            _tknValue->type == TokenType::charType ||
+            _tknValue->type == TokenType::ucharType)
+        );
+    }
+
+    bool Type::isConst() const {
+        return _isConst;
+    }
+
+    size_t Type::size() const {
+        if (isPointer() || isFunction()) return 8;
+        if (isString()) return 24;
+        if (isArray()) return 24;
+        if (isChar() || isUChar()) return 1;
+        if (isInt() || isUInt()) return 8;
+        if (isVoid()) return 0;
+        if (isTuple()) return std::reduce(_tupleType, _tupleType + (_tupleLen - 1), 0UL, [](unsigned long lhs, Type* rhs) -> unsigned long {
+            return lhs + rhs->size();
+        });
+        assert(false && "Not implemented");
+    }
+    size_t Type::alignment() const {
+        assert(false && "Not implemented");
+    }
+
+    bool Type::canBeImplicitlyUnconst() const {
+        return isNumber() || isBool();
+    }
+
+    bool operator ==(const Type& lhs, const Type& rhs) {
+        if (lhs.isToken() && rhs.isToken())
+            return *lhs._tknValue == *rhs._tknValue;
+        if (lhs.isPointer() && rhs.isPointer())
+            return *lhs._ptrType == *rhs._ptrType;
+        return false;
+    }
+
+    const std::string Type::shortID() const {
+        if (isString()) return "str";
+        if (isBool()) return "b";
+        if (isInt()) return "i";
+        if (isUInt()) return "u";
+        if (isInt32()) return "i32";
+        if (isUInt32()) return "u32";
+        if (isShort()) return "i16";
+        if (isUShort()) return "u16";
+        if (isChar()) return "ch";
+        if (isUChar()) return "uch";
+        
+        if (isPointer()) return _ptrType->shortID() + "ptr";
+        if (isArray()) return _arrType->shortID() + "arr";
+        if (isFunction()) return _functionType[0]->shortID() + "to" + _functionType[1]->shortID() + "fptr";
+        
+        return "";
+    }
+
+    void Type::_setConst(bool isConst) {
+        _isConst = isConst;
+    }
+
 }
+//bool isString() const;
+//bool isBool() const;
+//bool isInt() const;
+//bool isUInt() const;
+//bool isInt32() const;
+//bool isUInt32() const;
+//bool isShort() const;
+//bool isUShort() const;
+//bool isChar() const;
+//bool isUChar() const;
+//bool isVoid() const;
+//
+//bool isToken() const;
+//bool isPointer() const;
+//bool isFunction() const;
+//bool isArray() const;
+//bool isTuple() const;
+//
+//bool isNumber() const;
+//bool isInteger() const;

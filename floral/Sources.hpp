@@ -9,15 +9,18 @@
 #ifndef Sources_h
 #define Sources_h
 
-#include "src/Files.hpp"
+#include <iostream>
+#include <string>
+#include <vector>
+#include "src/File IO.hpp"
 #include "src/Token.hpp"
 #include "src/Lexer.hpp"
 #include "src/AST.hpp"
 #include "src/Parser.hpp"
 #include "src/Timer.hpp"
 #include "src/Compiler.hpp"
-#include "src/FilePath.hpp"
-#include "src/Type.hpp"
 #include "src/Other.h"
+#include "src/SPA.hpp"
+#include "src/CommandParser.hpp"
 
 #endif /* Sources_h */

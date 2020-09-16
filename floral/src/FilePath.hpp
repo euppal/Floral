@@ -19,6 +19,7 @@ namespace Floral {
         };
         std::string _path;
         std::vector<Component> components;
+        size_t offset{};
         
         FilePath(const std::string &path): _path(path) {
             int temp {-1};
@@ -41,6 +42,16 @@ namespace Floral {
         void drop() {
             _path.erase(_path.size() - components.back().len);
             components.pop_back();
+        }
+        void keepLast(size_t n) {
+            if (components.size() - offset > n) {
+                const auto newLast {components[components.size() - n - 1]};
+                _path.erase(components.front().start, newLast.start + newLast.len);
+                offset++;
+            } else {
+                _path.clear();
+                components.clear();
+            }
         }
         std::string path() {
             return _path;

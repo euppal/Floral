@@ -9,13 +9,16 @@
 #ifndef Operator_hpp
 #define Operator_hpp
 
-#include <cstddef>
+#include "Token.hpp"
+#include "Type.hpp"
 
 namespace Floral {
-    struct Operator {
-        size_t precedence;
-        bool isLeftAssociative;
-        Operator(const size_t p, const bool l): precedence(p), isLeftAssociative(l) {}
+    class Operator {
+        const TokenType _type;
+        
+    public:
+        Operator(TokenType type);
+        Type* overloadExists(Type* left, Type* right) const;
     };
 }
 #endif /* Operator_hpp */

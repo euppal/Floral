@@ -24,11 +24,12 @@ namespace Floral {
     char Lexer::current() {
         // Returns the current character
         if (eof()) return '\0';
-        return code.at(pos);
+        return code[pos];
     }
     char Lexer::peek() {
         // Peeks at the next character
-        return code.at(pos + 1);
+        if (eof(-1)) return '\0';
+        return code[pos + 1];
     }
     void Lexer::advance() {
         // Advances and discards newlines
@@ -46,9 +47,9 @@ namespace Floral {
         }
     }
 
-    bool Lexer::eof() {
+    bool Lexer::eof(size_t inset) {
         // Checks whether pos is one past the last valid string index
-        return pos == code.size();
+        return pos >= code.size() + inset;
     }
     
     Token Lexer::_tkn(TokenType type, const std::string &content) {
@@ -142,7 +143,9 @@ namespace Floral {
         
         if (eof())
             return _tkn(TokenType::invalid, "");
-        
+
+        comments();
+
         if (isDigitChar())
             return number();
         
@@ -183,10 +186,18 @@ namespace Floral {
                 tmp = _tkn(TokenType::plus, "+");
                 break;
             case '-':
-                tmp = _tkn(TokenType::minus, "-");
+                if (peek() == '>') {
+                    tmp = _tkn(TokenType::arrow, "->");
+                    next();
+                } else
+                    tmp = _tkn(TokenType::minus, "-");
                 break;
             case '*':
-                tmp = _tkn(TokenType::multiply, "*");
+                if (peek() == '=') {
+                    tmp = _tkn(TokenType::power, "**");
+                    next();
+                } else
+                    tmp = _tkn(TokenType::multiply, "*");
                 break;
             case '/':
                 tmp = _tkn(TokenType::divide, "/");
@@ -220,14 +231,14 @@ namespace Floral {
             case ':':
                 tmp = _tkn(TokenType::colon, ":");
                 break;
-            case '>':
+            case '<':
                 if (peek() == '=') {
                     tmp = _tkn(TokenType::lessEqual, "<=");
                     next();
                 } else
                     tmp = _tkn(TokenType::less, "<");
                 break;
-            case '<':
+            case '>':
                 if (peek() == '=') {
                     tmp = _tkn(TokenType::greaterEqual, ">=");
                     next();
@@ -243,16 +254,39 @@ namespace Floral {
 
     std::vector<Token> Lexer::lex() {
         std::vector<Token> tkns {};
+        comments();
         Token tkn { drive() };
         while (tkn.type != TokenType::invalid) {
             tkns.push_back(tkn);
-            tkn = drive();
             if (eof()) {
-                if (tkn.type != TokenType::invalid)
+                if (tkn.type != TokenType::invalid && !(tkn == tkns.back()))
                     tkns.push_back(tkn);
-                break;
+                return tkns;
+            } else {
+                tkn = drive();
             }
         }
         return tkns;
+    }
+
+    void Lexer::comments() {
+        if (pos + 2 < code.size() && current() == '/') {
+            switch (peek()) {
+                case '/': {
+                    pos += 2;
+                    while (!eof() && current() != '\n') pos++;
+                    pos++; line++;
+                    break;
+                }
+                case '*': {
+                    pos += 2;
+                    while (!eof(-1) && current() != '*' && peek() != '/') advance();
+                    pos += 2;
+                    break;
+                }
+                default:
+                    return;
+            }
+        }
     }
 }

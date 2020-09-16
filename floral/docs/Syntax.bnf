@@ -1,0 +1,74 @@
+# Some notes on the syntax used. It does not deviate very much from standard BNF but there are some conteted styles:
+# ... (three periods) denotes "at least 1 of element"
+# - (a dash) denotes a range specifiying "any character inclusively within the two listed characters"
+
+# Also: static-eval-initializer is not defined. This is mostly due to the author's laziness.
+
+<file> ::= [<declaration>]... <main>
+<declaration> ::= <global> | <var> | <let> | <func> | <struct> | <enum> | <behavior>
+<statement> ::= <assignment> | <expression> | <return> | <for> | <if> | <while> | <switch> | <requirement> | <block> | <forward-declaration> | '' ';'
+<expression> ::= <literal> | <identifier> | <call> | <type> | <op> <expression> | <expression> <op> <expression> | <expression> <op>
+<main> ::= 'func main(' [<cmd-arg-parameters>] ')' <main-block>
+
+<integral-type> ::= 'Int' | 'UInt' | 'Char' | 'UChar' | 'Short' | 'UShort' | 'Int32' | 'UInt32' | 'Int64' | 'UInt64' | 'Int8' | 'UInt8' | 'Int16' | 'UInt16'
+<floating-point-type> ::= 'Float' | 'Double'
+<string-type> ::= 'String' | 'CString'
+<bool-type> ::= 'Bool'
+<pointer-type> ::= '&' <type>
+<tuple-type> ::= '(' <type> [',' <type>]... ')'
+<array-type> ::= '[' <type> ']'
+<function-type> ::= <type> '>' <type>
+
+<type> ::=  <integral-type> | <floating-point-type> | <string-type> | <bool-type> | <pointer-type> | <tuple-typle> | <array-type> | <function-type> | <identifier>
+<type-specifier> ::= ':' <type>
+<type-constraint> ::= <type> ['&' <type>]...
+
+<zero-initializer> ::= '()'
+<direct-initializer> ::= '(' <expression> ')'
+<copy-initializer> ::= '=' <expression>
+<initializer> ::= <zero-initializer> | <direct-initializer> | <copy-initializer>
+
+<parameter> ::= <identifier> ':' <type>
+<parameters> ::= [<parameter>] [',' <parameter>]...
+<cmd-arg-parameters> ::= 'args: [String]'
+
+<block> ::= '{' [<statement>]... '}'
+<main-block> ::= '{' [<statement>]... <return-statement> '}'
+
+<struct-member> ::= <var> | <let>
+
+<requirement> ::= 'requires' [<forward-declaration>]
+<requirement-statement> ::= <requitement> ';'
+
+<global> ::= 'global' <identifier> [<type-specifier>] <static-eval-initializer> ';'
+<let> ::= 'let' <identifier> [<type-specifier>] <zero-initializer> | <copy-initializer> ';'
+<var> ::= 'var' <identifier> [<type-specifier>] [<zero-initializer> | <copy-initializer>] ';'
+<func> ::= 'func' <identifier> '(' <parameters> ')' [<type-specifier>] <block>
+<struct> ::= 'struct' <identifier> [':' <type-constraint>] '{' [<struct-member>]... '}'
+<enum> ::= 'enum' <identifier> '{' <enum-case>... '}'
+<behavior> ::= 'behavior' <identifier> '{' (<requirement-statement>... '}'
+
+<filter> ::= 'where' <expression>
+<switch-case> ::= 'case' <expression> [<filter>] ':' <statement>
+
+<return> ::= 'return' <expression>
+<for> ::= 'for' <identifier> 'in' <expression> [<filter>] <block>
+<if> ::= 'if' <expression> <block> ['else' <if> | 'else' <block>) ]
+<while> ::= 'while' <expression> <block> | 'do' <block> 'while' <expression>
+<switch> ::= 'switch' <expression> '{' <switch-case>... '}'
+
+<integer-literal> ::= <digit>...
+<floating-point-literal> ::= <integer-literal> '.' <integer-literal>
+<char-literal> ::= '\''  '\''
+<string-literal> ::= '\"' [<char>]... '\"'
+<bool-literal> ::= 'true' | 'false'
+<nil-literal> ::= 'nil' | 'null'
+<literal> ::= <integer-literal> | <floating-point-literal> | <string-literal> | <char-literal> | <bool-literal> | <nil-literal>
+<call> ::= <identifier> '(' <expression> [',' <expression>]... ')'
+
+<op> ::= '+' | '-' | '&' | '|' | '!' | '^' | '%' | '~' | '*' | '/' | '==' | '!=' | '>' | '<' | '>=' | '<='
+
+<identifier> ::= '_' | <alpha> ['_' | <alphanum>]...
+<alpha> ::= 'a'-'z' | 'A'-'Z'
+<alphanum> ::= <alpha> | <digit>
+<digit> ::= '0'-'9'

@@ -6,24 +6,23 @@
 //  Copyright © 2020 Ethan Uppal. All rights reserved.
 //
 
-#include <cstddef>
+#include <vector>
+#include "Type.hpp"
+#include "AST.hpp"
 
 #ifndef Scope_hpp
 #define Scope_hpp
 
-#define MAX_NESTING 256
-
 namespace Floral {
     class Scope {
-        char* stack;
-        size_t size;
+        std::vector<std::pair<std::string, Type*>> _items;
         
     public:
-        void enter(const char scope);
-        void exit();
-        char current() const;
+        Scope();
         
-        bool isWithin(const Scope& otherScope) const;
+        void insert(const std::string& name, Type* type);
+        Type* typeOf(const std::string& name);
+        struct Function* func;
     };
 }
 

@@ -41,6 +41,10 @@ namespace Floral {
         auto intType { static_cast<int>(type) };
         return (intType >= static_cast<int>(TokenType::plus) && intType <= static_cast<int>(TokenType::unequal)) || type == TokenType::leftParenthesis;
     }
+    bool tokenTypeIsOperator(TokenType type) {
+        auto intType { static_cast<int>(type) };
+        return intType >= static_cast<int>(TokenType::plus) && intType <= static_cast<int>(TokenType::power);
+    }
     bool Token::isDeclarator() const {
         return type == TokenType::func || type == TokenType::global || type == TokenType::let || type == TokenType::var;
     }
@@ -54,6 +58,13 @@ namespace Floral {
     bool Token::isInvalid() const {
         return type == TokenType::invalid;
     }
+    bool Token::isId() const {
+        return type == TokenType::identifier;
+    }
 
     Token* Token::invalid;
+
+    bool operator ==(const Token& lhs, const Token& rhs) {
+        return lhs.contents == rhs.contents;
+    }
 }
