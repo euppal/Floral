@@ -31,12 +31,15 @@ namespace Floral {
         
         std::vector<Error> _errors;
         void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
-        
+        void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+
     public:
         CommandParser(Command command);
         
         bool hasErrors() const;
         const std::vector<Error>& errors() const;
+        bool hasWarnings() const;
+        const std::vector<Error>& warnings() const;
         
         const std::vector<std::string>& infiles() const;
         const std::string& outfile() const;

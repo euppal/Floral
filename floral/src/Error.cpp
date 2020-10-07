@@ -10,36 +10,41 @@
 #include "AST.hpp"
 #include "FilePath.hpp"
 #include <iostream>
+#include "Colors.hpp"
 
 namespace Floral {
     void Error::print(const std::string& optionalSource, size_t pathext) const {
+        ColoredStream out;
+        out.resetAutomatically = true;
+        
         std::string pathitem;
         if (!path.empty()) {
             FilePath fpath {path};
-            fpath.keepLast(pathext);
-            pathitem = fpath.path();
+            pathitem = fpath.last();
         }
-        std::cout << _domainStrings[domain] << ": " << pathitem;
+        if (isWarning) out << Color::yellow;
+        else out << Color::red;
+        out << _domainStrings[domain] << ": " << pathitem << ' ';
         if (location.startLine == location.endLine) {
             std::cout << '(' << location.startLine << ')';
         } else {
             std::cout << '('<< location.startLine << '-' << location.endLine << ')';
         }
-        std::cout << ": " << text << '\n';
+        out << ": " << text << '\n';
         
         if (!optionalSource.empty()) {
             size_t start;
             const std::string line = extractLine(optionalSource, errloc.pos, &start);
             const long shift = errloc.pos - start - 1;
             
-            std::cout << line << '\n';
+            out << Color::white << line << '\n';
             for (long i = 0; i < shift; i++) fputc(' ', stdout);
-            fputc('^', stdout);
+            out << Color::white << '^';
             if (errloc.len) {
-                for (size_t i = 1; i < errloc.len; i++) fputc('^', stdout);
+                for (size_t i = 1; i < errloc.len; i++) out << Color::white << '^';
             }
             if (fix.empty()) fputc('\n', stdout);
-            else std::cout << '\n' << fix << '\n';
+            else out << '\n' << fix << '\n';
         }
         fputc('\n', stdout);
     }

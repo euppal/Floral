@@ -50,10 +50,10 @@ namespace Floral {
             void function(Function* func);
             void global(GlobalDeclaration* gbl);
             void forwardGlobal(GlobalForwardDeclaration* fgbl);
-            void let(LetDeclaration* l);
-            void var(VarDeclaration* v);
             
             void statement(Statement* stm);
+            void let(LetStatement* l);
+            void var(VarStatement* v);
             void callStm(CallStatement* callStm);
             void returnStm(ReturnStatement* rtnStm);
             
@@ -80,8 +80,8 @@ namespace Floral {
     }
     namespace v2 {
         class Compiler: public ErrorReporting {
-            std::vector<Error> _errors;
             void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+            void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
             std::string _src;
             
             std::string outputDest;
@@ -94,6 +94,9 @@ namespace Floral {
             
             StaticAnalyzer analyzer; // the static analyzer
 
+            size_t _stackFromMain {};
+            void _processPotentialStackOperation(Instruction* instr);
+            
             void emit(Instruction* instr, SectionType section);
             
             void reset();
@@ -112,13 +115,20 @@ namespace Floral {
             void emitDeclaration(Declaration* decl);
             void emitGlobal(GlobalDeclaration* gbl);
             void emitExternGlobal(GlobalForwardDeclaration* fgbl);
-            void emitLocalConst(LetDeclaration* l);
-            void emitLocalVar(VarDeclaration* v);
             
             // Statement related
             void emitStatement(Statement* stm);
+            void emitLocalConst(LetStatement* l);
+            void emitLocalVar(VarStatement* v);
             void emitCallStatement(CallStatement* callStm);
             void emitReturnStatement(ReturnStatement* rtnStm);
+            void emitExpressionStatement(ExpressionStatement* exprStm);
+            void emitAssignmentStatement(Assignment* assignStm);
+            void emitPointerAssignmentStatement(PointerAssignment* ptrAssign);
+            void emitIfStatement(IfStatement* ifStm);
+            void emitWhileStatement(WhileStatement* whileStm);
+            void emitForStatement(ForStatement* forStm);
+            void emitBlock(Block* block);
             
             // Misc
             void emitReturnSpecificValue(Location src);
@@ -133,10 +143,20 @@ namespace Floral {
             
             // Expression related
             Location emitExpression(Expression* expr);
-            long long emitCallArguments(const std::vector<Expression*>& args);
-            void emitCall(Call* call);
+            std::pair<long long, std::vector<Register>> emitCallArguments(const std::vector<Expression*>& args);
+            Location emitCall(Call* call);
             
-            void optimize();
+            // Optimization
+            void optimizeMatch1(size_t instrc);
+            bool optimizeMatch2(size_t instrc);
+            void optimizeMatch3(size_t instrc);
+            void optimizeOutRedundancy(size_t instrc);
+            void optimize(int passes);
+            
+            // Other
+            std::string _path;
+            bool _wasRegisterParameter = false;
+            void _strprocess(std::string& str);
             
         public:
             Compiler();
@@ -151,11 +171,16 @@ namespace Floral {
             void setOutputDestination(const std::string &dest);
             bool hasErrors() const;
             const std::vector<Error>& errors() const;
+            bool hasWarnings() const;
+            const std::vector<Error>& warnings() const;
             
             void compile(const File *file);
             const std::string result() const;
             
             void setSource(const std::string& src);
+            
+            void _debugInsert(Instruction* instr);
+            void setPath(const std::string& path);
         };
     }
 }

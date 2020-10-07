@@ -11,8 +11,9 @@
 		581C5FC924FEBE7B00DEE9F6 /* Frame.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FC724FEBE7B00DEE9F6 /* Frame.cpp */; };
 		581C5FCB250007B900DEE9F6 /* test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FCA250007B900DEE9F6 /* test.cpp */; };
 		581C5FCE2501654900DEE9F6 /* Instruction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FCC2501654900DEE9F6 /* Instruction.cpp */; };
+		585FDC292523A5A600135392 /* Colors.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 585FDC282523A48300135392 /* Colors.cpp */; };
 		58626E3024C7630400564C58 /* SPA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58626E2E24C7630400564C58 /* SPA.cpp */; };
-		587D6CE9250969B900CD0E40 /* Compiler_v2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 587D6CE8250969B900CD0E40 /* Compiler_v2.cpp */; };
+		587D6CE9250969B900CD0E40 /* Compiler v2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 587D6CE8250969B900CD0E40 /* Compiler v2.cpp */; };
 		5894DFA024BE3EEB000C8E05 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8824BE3EDB000C8E05 /* main.cpp */; };
 		5894DFA124BE3EF8000C8E05 /* Sources.hpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8724BE3EDB000C8E05 /* Sources.hpp */; };
 		5894DFA224BE3F01000C8E05 /* Parser.hpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8A24BE3EDB000C8E05 /* Parser.hpp */; };
@@ -75,12 +76,14 @@
 		581C5FCA250007B900DEE9F6 /* test.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test.cpp; sourceTree = "<group>"; };
 		581C5FCC2501654900DEE9F6 /* Instruction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Instruction.cpp; sourceTree = "<group>"; };
 		581C5FCD2501654900DEE9F6 /* Instruction.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Instruction.hpp; sourceTree = "<group>"; };
+		585FDC272523A48300135392 /* Colors.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Colors.hpp; sourceTree = "<group>"; };
+		585FDC282523A48300135392 /* Colors.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Colors.cpp; sourceTree = "<group>"; };
 		5860F5E524FB1AE700E3FE47 /* test.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = test.hpp; sourceTree = "<group>"; };
 		58626E2E24C7630400564C58 /* SPA.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SPA.cpp; sourceTree = "<group>"; };
 		58626E2F24C7630400564C58 /* SPA.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SPA.hpp; sourceTree = "<group>"; };
-		587D162524A9306100D20ED2 /* Floral in C++ - Compiled */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "Floral in C++ - Compiled"; sourceTree = BUILT_PRODUCTS_DIR; };
-		587D6CE8250969B900CD0E40 /* Compiler_v2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Compiler_v2.cpp; sourceTree = "<group>"; };
-		5894DF8424BE3EDB000C8E05 /* options.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = options.json; sourceTree = "<group>"; };
+		587D162524A9306100D20ED2 /* floralc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = floralc; sourceTree = BUILT_PRODUCTS_DIR; };
+		587D6CE8250969B900CD0E40 /* Compiler v2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "Compiler v2.cpp"; sourceTree = "<group>"; };
+		5894DF8424BE3EDB000C8E05 /* config.floralattr */ = {isa = PBXFileReference; lastKnownFileType = text; path = config.floralattr; sourceTree = "<group>"; };
 		5894DF8624BE3EDB000C8E05 /* main.floral */ = {isa = PBXFileReference; lastKnownFileType = text; path = main.floral; sourceTree = "<group>"; };
 		5894DF8724BE3EDB000C8E05 /* Sources.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Sources.hpp; sourceTree = "<group>"; };
 		5894DF8824BE3EDB000C8E05 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
@@ -152,6 +155,14 @@
 			path = v1;
 			sourceTree = "<group>";
 		};
+		5832F39E2513A7E60010F880 /* depr */ = {
+			isa = PBXGroup;
+			children = (
+				5894DF8C24BE3EDB000C8E05 /* Compiler.cpp */,
+			);
+			path = depr;
+			sourceTree = "<group>";
+		};
 		587D161C24A9306100D20ED2 = {
 			isa = PBXGroup;
 			children = (
@@ -164,7 +175,7 @@
 		587D162624A9306100D20ED2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				587D162524A9306100D20ED2 /* Floral in C++ - Compiled */,
+				587D162524A9306100D20ED2 /* floralc */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -172,9 +183,9 @@
 		5894DF8224BE3EDB000C8E05 /* floral */ = {
 			isa = PBXGroup;
 			children = (
-				5894DF8824BE3EDB000C8E05 /* main.cpp */,
 				5860F5E524FB1AE700E3FE47 /* test.hpp */,
 				581C5FCA250007B900DEE9F6 /* test.cpp */,
+				5894DF8824BE3EDB000C8E05 /* main.cpp */,
 				5894DF8724BE3EDB000C8E05 /* Sources.hpp */,
 				581C5F9D24FC1C5E00DEE9F6 /* docs */,
 				5894DF8924BE3EDB000C8E05 /* src */,
@@ -187,29 +198,23 @@
 			isa = PBXGroup;
 			children = (
 				5894DF8624BE3EDB000C8E05 /* main.floral */,
-				5894DF8424BE3EDB000C8E05 /* options.json */,
-				5894DF8524BE3EDB000C8E05 /* source */,
+				5894DF8424BE3EDB000C8E05 /* config.floralattr */,
 			);
 			path = proj;
-			sourceTree = "<group>";
-		};
-		5894DF8524BE3EDB000C8E05 /* source */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = source;
 			sourceTree = "<group>";
 		};
 		5894DF8924BE3EDB000C8E05 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				585FDC282523A48300135392 /* Colors.cpp */,
+				585FDC272523A48300135392 /* Colors.hpp */,
 				5894DFB824BE604C000C8E05 /* Other.h */,
 				581C5F9A24FC17BC00DEE9F6 /* CommandParser.cpp */,
 				581C5F9B24FC17BC00DEE9F6 /* CommandParser.hpp */,
-				5894DF8A24BE3EDB000C8E05 /* Parser.hpp */,
-				5894DF9B24BE3EDB000C8E05 /* Parser.cpp */,
 				58626E2F24C7630400564C58 /* SPA.hpp */,
 				58626E2E24C7630400564C58 /* SPA.cpp */,
+				5894DF8A24BE3EDB000C8E05 /* Parser.hpp */,
+				5894DF9B24BE3EDB000C8E05 /* Parser.cpp */,
 				5894DF9C24BE3EDB000C8E05 /* AST.hpp */,
 				5894DF8B24BE3EDB000C8E05 /* AST.cpp */,
 				5894DF8D24BE3EDB000C8E05 /* Type.hpp */,
@@ -229,12 +234,12 @@
 				5894DF9624BE3EDB000C8E05 /* Operator.hpp */,
 				5894DF9124BE3EDB000C8E05 /* Operator.cpp */,
 				5894DF9D24BE3EDB000C8E05 /* Compiler.hpp */,
-				5894DF8C24BE3EDB000C8E05 /* Compiler.cpp */,
-				587D6CE8250969B900CD0E40 /* Compiler_v2.cpp */,
+				587D6CE8250969B900CD0E40 /* Compiler v2.cpp */,
 				581C5FC824FEBE7B00DEE9F6 /* Frame.hpp */,
 				581C5FC724FEBE7B00DEE9F6 /* Frame.cpp */,
 				581C5FCD2501654900DEE9F6 /* Instruction.hpp */,
 				581C5FCC2501654900DEE9F6 /* Instruction.cpp */,
+				5832F39E2513A7E60010F880 /* depr */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -242,9 +247,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		587D162424A9306100D20ED2 /* Floral in C++ - Compiled */ = {
+		587D162424A9306100D20ED2 /* floralc */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 587D162C24A9306100D20ED2 /* Build configuration list for PBXNativeTarget "Floral in C++ - Compiled" */;
+			buildConfigurationList = 587D162C24A9306100D20ED2 /* Build configuration list for PBXNativeTarget "floralc" */;
 			buildPhases = (
 				587D162124A9306100D20ED2 /* Sources */,
 				587D162224A9306100D20ED2 /* Frameworks */,
@@ -254,9 +259,9 @@
 			);
 			dependencies = (
 			);
-			name = "Floral in C++ - Compiled";
+			name = floralc;
 			productName = "Floral in C++ - Compiled";
-			productReference = 587D162524A9306100D20ED2 /* Floral in C++ - Compiled */;
+			productReference = 587D162524A9306100D20ED2 /* floralc */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -286,7 +291,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				587D162424A9306100D20ED2 /* Floral in C++ - Compiled */,
+				587D162424A9306100D20ED2 /* floralc */,
 			);
 		};
 /* End PBXProject section */
@@ -304,6 +309,7 @@
 				581C5FCB250007B900DEE9F6 /* test.cpp in Sources */,
 				5894DFA724BE3F01000C8E05 /* Error.cpp in Sources */,
 				5894DFA824BE3F01000C8E05 /* Scope.hpp in Sources */,
+				585FDC292523A5A600135392 /* Colors.cpp in Sources */,
 				5894DFA924BE3F01000C8E05 /* Operator.cpp in Sources */,
 				5894DFAA24BE3F01000C8E05 /* File IO.hpp in Sources */,
 				5894DFAB24BE3F01000C8E05 /* Lexer.cpp in Sources */,
@@ -318,7 +324,7 @@
 				5894DFB124BE3F01000C8E05 /* Lexer.hpp in Sources */,
 				5894DFB224BE3F01000C8E05 /* FilePath.hpp in Sources */,
 				5894DFB324BE3F01000C8E05 /* Parser.cpp in Sources */,
-				587D6CE9250969B900CD0E40 /* Compiler_v2.cpp in Sources */,
+				587D6CE9250969B900CD0E40 /* Compiler v2.cpp in Sources */,
 				5894DFB424BE3F01000C8E05 /* AST.hpp in Sources */,
 				5894DFB524BE3F01000C8E05 /* Compiler.hpp in Sources */,
 				5894DFB624BE3F01000C8E05 /* Type.cpp in Sources */,
@@ -497,7 +503,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		587D162C24A9306100D20ED2 /* Build configuration list for PBXNativeTarget "Floral in C++ - Compiled" */ = {
+		587D162C24A9306100D20ED2 /* Build configuration list for PBXNativeTarget "floralc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				587D162D24A9306100D20ED2 /* Debug */,

@@ -27,14 +27,14 @@ namespace Floral {
         friend struct Token;
     };
     enum class TokenType {
-        invalid,
+        invalid, macro,
         identifier,
         leftParenthesis, rightParenthesis,
         leftBrace, rightBrace,
         leftBracket, rightBracket,
-        semicolon, colon, comma, arrow,
+        semicolon, colon, comma, arrow, backarrow,
         func,
-        simpleString, boolTrue, boolFalse, numIntDec, numIntHex, numFloating,
+        simpleString, boolTrue, boolFalse, null, numIntDec, numUIntDec, numByteDec, numUByteDec, numShortDec, numUShortDec, numInt32Dec, numUInt32Dec, numIntHex, numFloating,
         int64Type, uint64Type,
         charType, ucharType,
         shortType, ushortType,
@@ -42,14 +42,20 @@ namespace Floral {
         boolType,
         stringType, cStringType,
         voidType,
-        plus, minus, multiply, divide, assign, notOp, andOp, orOp, modulus, xorOp, less, greater, lessEqual, greaterEqual, equal, unequal, power,
-        global, let, var,
-        return_, using_, const_
+        plus, minus, inc, dec, multiply, divide, assign, notOp, andOp, orOp, modulus, xorOp, less, greater, lessEqual, greaterEqual, equal, unequal, power,
+        global, let, var, if_, while_, for_,
+        return_, using_, const_, sizeof_, unsafe_cast
     };
     bool tokenTypeIsOperator(TokenType type);
     const std::string tokenTypeStrings[] {
-        "invalid", "identifier", "leftParenthesis", "rightParenthesis", "leftBrace", "rightBrace", "leftBracket", "rightBracket", "semicolon", "colon", "comma", "arrow", "func",
-        "simpleString", "boolTrue", "boolFalse", "decimalInteger", "hexadecimalInteger", "floatingPointNumber",
+        "invalid", "macro",
+        "identifier",
+        "leftParenthesis", "rightParenthesis",
+        "leftBrace", "rightBrace",
+        "leftBracket", "rightBracket",
+        "semicolon", "colon", "comma", "arrow", "backarrow",
+        "func",
+        "simpleString", "boolTrue", "boolFalse", "null", "long", "unsigned long", "signed char", "unsigned char", "signed short", "unsigned short", "signed int", "unsigned int", "hexadecimal long", "floatingPointNumber",
         "int64Type", "uint64Type",
         "charType", "ucharType",
         "shortType", "ushortType",
@@ -57,18 +63,22 @@ namespace Floral {
         "boolType",
         "stringType", "cStringType",
         "voidType",
-        "plus", "minus", "multiply", "divide", "assign", "not", "and", "or", "modulus", "xor", "less", "greater", "lessEqual", "greaterEqual", "equal", "unequal", "power"
-        "global", "let", "var",
-        "return", "using", "const"
+        "plus", "minus", "inc", "dec", "multiply", "divide", "assign", "not", "and", "or", "modulus", "xor", "less", "greater", "lessEqual", "greaterEqual", "equal", "unequal", "power",
+        "global", "let", "var", "if", "while", "for",
+        "return", "using", "const", "sizeof", "unsafe_cast"
     };
 
-    const std::unordered_map<std::string, TokenType> keywords = {
+    const std::unordered_map<std::string, TokenType> keywordMap = {
         { "func", TokenType::func },
         { "true", TokenType::boolTrue },
         { "false", TokenType::boolFalse },
         { "global", TokenType::global },
+        { "null", TokenType::null },
         { "let", TokenType::let },
         { "var", TokenType::var },
+        { "if", TokenType::if_ },
+        { "while", TokenType::while_ },
+        { "for", TokenType::for_ },
         { "Int", TokenType::int64Type },
         { "Int64", TokenType::int64Type },
         { "UInt", TokenType::uint64Type },
@@ -89,7 +99,9 @@ namespace Floral {
         { "Void", TokenType::voidType },
         { "return", TokenType::return_ },
         { "using", TokenType::using_ },
-        { "const", TokenType::const_ }
+        { "const", TokenType::const_ },
+        { "sizeof", TokenType::sizeof_ },
+        { "unsafe_cast", TokenType::unsafe_cast }
     };
 
     std::string tokenTypeDescription(TokenType type);

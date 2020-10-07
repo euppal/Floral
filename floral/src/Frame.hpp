@@ -27,10 +27,18 @@
 namespace Floral {
     struct Location;
     enum class Register {
-        rax, rbx, rcx, rdx, rdi, rsi, rbp, rsp, r8, r9, r10, r11, r12, r13, r14, r15, eax
+        rax, rbx, rcx, rdx, rdi, rsi, rbp, rsp,
+        eax, ebx, ecx, edx, edi, esi, ebp, esp,
+        r8, r9, r10, r11, r12, r13, r14, r15,
+        xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7,
+        al
     };
     const std::string registerNames[] {
-        "rax", "rbc", "rcx", "rdx", "rdi", "rsi", "rbp", "rsp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "eax"
+        "rax", "rbx", "rcx", "rdx", "rdi", "rsi", "rbp", "rsp",
+        "eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp",
+        "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+        "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
+        "al"
     };
     bool isScratch(Register reg);
     struct Variable {
@@ -42,6 +50,7 @@ namespace Floral {
         std::vector<Register> registersInUse;
         std::vector<Variable> data;
         long nextOffset() const;
+        std::string id;
         
         int avaliableScratch();
         void returnScratchRegister(Register r);

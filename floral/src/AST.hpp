@@ -15,7 +15,6 @@
 #include "Type.hpp"
 #include "Scope.hpp"
 
-
 namespace Floral {
     namespace v2 {
         class Compiler;
@@ -37,9 +36,7 @@ namespace Floral {
         bool isStaticEval {};
     };
     struct Node {
-        TextRegion _loc;
-        Scope scope;
-        
+        TextRegion _loc;        
         virtual ~Node();
         
     protected:
@@ -82,6 +79,7 @@ namespace Floral {
         
         virtual void print() const override;
         virtual void pretty() const = 0;
+        virtual const std::string prettystr() const = 0;
         
         Type* type;
     };
@@ -102,7 +100,7 @@ namespace Floral {
     private:
         Token _name;
         Parameters _parameters;
-        std::vector<Node*> _body;
+        std::vector<Statement*> _body;
         Type* _retType;
 
     public:
@@ -110,8 +108,8 @@ namespace Floral {
         ~Function();
         
         virtual void print() const override;
-        void insert(Node* node);
-        const std::vector<Node*>& body() const;
+        void insert(Statement* stm);
+        const std::vector<Statement*>& body() const;
         const Token& name() const;
         size_t arity() const;
         const Type* returnType() const;
@@ -146,6 +144,8 @@ namespace Floral {
         
         virtual void print() const override;
         virtual void pretty() const override;
+        const std::string prettystr() const override;
+        const std::string generateTypeDescription() const;
     };
     class CallStatement: public Statement {
     public:
@@ -165,6 +165,7 @@ namespace Floral {
         ~ReturnStatement();
         
         virtual void print() const override;
+
         Expression* value() const;
     };
     class EmptyStatment: public Statement {
@@ -175,12 +176,19 @@ namespace Floral {
     };
     class OperatorComponentExpression: public Expression {
         Token _op;
+        
     public:
+        enum OperatorMode {
+            infix, prefix, suffix
+        };
+        
         OperatorComponentExpression(const Token& op);
         
         virtual void print() const override;
         virtual void pretty() const override;
-        size_t precedence() const;
+        const std::string prettystr() const override;
+
+        size_t precedence(const OperatorMode mode) const;
         const Token& tkn() const;
         const TokenType tkntype() const;
     };
@@ -195,6 +203,8 @@ namespace Floral {
         
         virtual void print() const override;
         virtual void pretty() const override;
+        const std::string prettystr() const override;
+
         Expression* left() const;
         OperatorComponentExpression* op() const;
         Expression* right() const;
@@ -204,7 +214,12 @@ namespace Floral {
     class Literal: public Expression {
     public:
         enum class LType {
-            boolean, decimalInteger, hexadecimalInteger, floatingPointNumber, simpleString
+            boolean,
+            decimalInteger, decimalUInteger,
+            decimalByte, decimalUByte,
+            decimalShort, decimalUShort,
+            decimalInt32, decimalUInt32,
+            hexadecimalInteger, floatingPointNumber, simpleString
         };
         
     private:
@@ -216,18 +231,20 @@ namespace Floral {
         
         virtual void print() const override;
         virtual void pretty() const override;
+        const std::string prettystr() const override;
         const std::string description() const;
         LType type() const;
         const Token& value() const;
     };
-    class LiteralStatement: public Statement {
-        Literal* _lit;
+    class ExpressionStatement: public Statement {
+        Expression* _expr;
         
     public:
-        LiteralStatement(TextRegion loc, Literal* lit);
-        ~LiteralStatement();
+        ExpressionStatement(TextRegion loc, Expression* expr);
+        ~ExpressionStatement();
         
         virtual void print() const override;
+        Expression* expr() const;
     };
     struct Initializer {
         enum InitializerType {
@@ -272,14 +289,14 @@ namespace Floral {
         bool isZeroInitialized() const;
         const Initializer* initializer() const;
     };
-    class LetDeclaration: public Declaration {
+    class LetStatement: public Statement {
         Token _name;
         Type* _type;
         Initializer* init;
 
     public:
-        LetDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init);
-        ~LetDeclaration();
+        LetStatement(TextRegion loc, const Token& name, Type* type, Initializer* init);
+        ~LetStatement();
         
         virtual void print() const override;
         const Initializer* initializer() const;
@@ -287,14 +304,14 @@ namespace Floral {
         void setType(Type* newType);
         const Token& name() const;
     };
-    class VarDeclaration: public Declaration {
+    class VarStatement: public Statement {
         Token _name;
         Type* _type;
         Initializer* init;
 
     public:
-        VarDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init);
-        ~VarDeclaration();
+        VarStatement(TextRegion loc, const Token& name, Type* type, Initializer* init);
+        ~VarStatement();
         
         virtual void print() const override;
         const Initializer* initializer() const;
@@ -311,6 +328,8 @@ namespace Floral {
             
         virtual void print() const override;
         virtual void pretty() const override;
+        const std::string prettystr() const override;
+
         const Token& value() const;
     };
     class GlobalForwardDeclaration: public Declaration {
@@ -324,6 +343,106 @@ namespace Floral {
         virtual void print() const override;
         const Token& name() const;
         const Type* type() const;
+    };
+    class PointerAssignment: public Statement {
+        Expression* _ptrExpr;
+        Expression* _newValue;
+        
+    public:
+        PointerAssignment(TextRegion loc, Expression* ptrExpr, Expression* newValue);
+        ~PointerAssignment();
+        virtual void print() const override;
+        void makenull();
+        Expression* ptrExpr() const;
+        Expression* newValue() const;
+    };
+    class SizeOfType: public Expression {
+        Type* _type;
+            
+    public:
+        SizeOfType(TextRegion loc, Type* type);
+        ~SizeOfType();
+        
+        virtual void print() const override;
+        virtual void pretty() const override;
+        const std::string prettystr() const override;
+        size_t size() const;
+        Type* type() const;
+    };
+    class UnsafeCast: public Expression {
+        Type* _type;
+        Expression* _expr;
+    public:
+        UnsafeCast(TextRegion loc, Type* type, Expression* expr);
+        ~UnsafeCast();
+        
+        virtual void print() const override;
+        virtual void pretty() const override;
+        const std::string prettystr() const override;
+        Type* type() const;
+        Expression* expr() const;
+    };
+    class Assignment: public Statement {
+        Expression* _lval;
+        Expression* _rval;
+        
+    public:
+        Assignment(TextRegion loc, Expression* lval, Expression* rval);
+        ~Assignment();
+        virtual void print() const override;
+        Expression* lval() const;
+        Expression* rval() const;
+    };
+    class Block: public Statement {
+        std::vector<Node*> _body;
+
+    public:
+        Block(TextRegion loc, const std::vector<Node*>& body);
+        ~Block();
+        
+        virtual void print() const override;
+        void insert(Node* node);
+        const std::vector<Node*>& body() const;
+    };
+    class IfStatement: public Statement {
+        Expression* _condition;
+        Block* _body;
+        
+    public:
+        IfStatement(TextRegion loc, Expression* condition, Block* body);
+        ~IfStatement();
+        
+        virtual void print() const override;
+        Expression* condition() const;
+        Block* body() const;
+    };
+    class WhileStatement: public Statement {
+        Expression* _condition;
+        Block* _body;
+        
+    public:
+        WhileStatement(TextRegion loc, Expression* condition, Block* body);
+        ~WhileStatement();
+        
+        virtual void print() const override;
+        Expression* condition() const;
+        Block* body() const;
+    };
+    class ForStatement: public Statement {
+        Statement* _init;
+        Expression* _check;
+        Statement* _modify;
+        Block* _body;
+        
+    public:
+        ForStatement(TextRegion loc, Statement* init, Expression* condition, Statement* modify, Block* body);
+        ~ForStatement();
+        
+        virtual void print() const override;
+        Statement* init() const;
+        Expression* check() const;
+        Statement* modify() const;
+        Block* body() const;
     };
 }
 

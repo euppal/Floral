@@ -15,8 +15,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "587D162424A9306100D20ED2"
-               BuildableName = "Floral in C++ - Compiled"
-               BlueprintName = "Floral in C++ - Compiled"
+               BuildableName = "floralc"
+               BlueprintName = "floralc"
                ReferencedContainer = "container:floral.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,8 +45,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "587D162424A9306100D20ED2"
-            BuildableName = "Floral in C++ - Compiled"
-            BlueprintName = "Floral in C++ - Compiled"
+            BuildableName = "floralc"
+            BlueprintName = "floralc"
             ReferencedContainer = "container:floral.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -56,7 +56,11 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "asm_out.s"
+            argument = "asm_out.nasm"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-O"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
@@ -71,8 +75,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "587D162424A9306100D20ED2"
-            BuildableName = "Floral in C++ - Compiled"
-            BlueprintName = "Floral in C++ - Compiled"
+            BuildableName = "floralc"
+            BlueprintName = "floralc"
             ReferencedContainer = "container:floral.xcodeproj">
          </BuildableReference>
       </MacroExpansion>

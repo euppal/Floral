@@ -9,19 +9,23 @@
 #ifndef Instruction_hpp
 #define Instruction_hpp
 
+constexpr bool NO_COMMENTS = false;
+
 #include <string>
 #include <vector>
 #include <cinttypes>
 
-#define LOC_IS_NOT_REG -1
+#define LOC_IS_NOT_REG (-1)
 #define RETURN_VALUE_LOC (RegisterLocation(Register::rax))
 #define RETURN_VALUE_LOC_32b (RegisterLocation(Register::eax))
 #define INDENT "  "
 #define prefixed(lbl) (FLORAL_ID_PREFIX + lbl)
-#define ADD_COMMENT_IF_EXISTS (comment.empty() ? "" : (" ; " + comment))
+#define ADD_COMMENT_IF_EXISTS ((NO_COMMENTS || comment.empty()) ? "" : (" ; " + comment))
 #define OPSIZE_FROM_NUM(n) ((n) == 1 ? SizeType::byte : ((n) == 2 ? SizeType::word : ((n) == 4 ? SizeType::dword : SizeType::qword)))
-#define MOVE_OPSIZE_STR_IF_NECESSARY ((opsize == SizeType::qword && !(src.isLiteral || src.stack != -1)) ? "" : (dest.reg == LOC_IS_NOT_REG || src.stack != -1) ? (sizeTypeNames[static_cast<int>(opsize)] + ' ') : "")
-#define IS_RBPOFFSET(loc) ((loc).reg == LOC_IS_NOT_REG && !(loc).isLbl && !(loc).isLiteral)
+#define MOVE_OPSIZE_STR_IF_NECESSARY (((src.isLiteral && dest.isDereference) ? sizeTypeNames[static_cast<int>(opsize)] + ' ' : ""))
+#define IS_RBPOFFSET(loc) ((loc).reg == static_cast<int>(Register::rbp) && (loc).isDereference)
+#define IS_REG(loc) ((loc).reg != LOC_IS_NOT_REG && !(loc).isDereference && !(loc).offset)
+#define ARE_BOTH_LIT(leftop, rightop) ((leftop)->src.isLiteral && (rightop)->src.isLiteral)
 
 namespace Floral {
     const std::string join(const std::vector<std::string>& vector, const std::string& sep);
@@ -141,17 +145,21 @@ namespace Floral {
     };
     struct Location {
         int reg;
-        long stack;
+        long long offset;
         bool isLiteral;
         bool isSigned;
         union SignedUnsigned value;
         bool isLbl;
         std::string lbl;
+        bool isDereference;
         
         const std::string str() const;
+        
+        friend bool operator ==(const Location& lhs, const Location& rhs);
     };
     enum class Register;
     Location RegisterLocation(Register reg);
+    Location ValueAtRegisterLocation(Register reg);
     Location RBPOffsetLocation(long offset);
     Location NumberLiteralLocation(bool isSigned, union SignedUnsigned value);
     Location RelativeLabelLocation(const std::string& lbl);
@@ -296,6 +304,34 @@ namespace Floral {
         Syscall(const std::string& _comment = ""): comment(_comment) {}
         ~Syscall() override {}
         
+        std::string comment;
+        
+        const std::string str() const override;
+    };
+    struct CmpOperation: public Operation {
+        CmpOperation(Location _dest, Location _src, const std::string& _comment = ""): src(_src), dest(_dest), comment(_comment) {}
+        ~CmpOperation() override {}
+        
+        Location src;
+        Location dest;
+        std::string comment;
+        
+        const std::string str() const override;
+    };
+    struct JumpOperation: public Operation {
+        enum class JType {
+            normal,
+            zero,
+            nonzero
+        };
+        const std::string jtypemap[3] {
+            "jmp", "jz", "jnz"
+        };
+        JumpOperation(JType _type, std::string _lbl, const std::string& _comment = ""): type(_type), lbl(_lbl), comment(_comment) {}
+        ~JumpOperation() override {}
+        
+        JType type;
+        std::string lbl;
         std::string comment;
         
         const std::string str() const override;

@@ -7,8 +7,9 @@
 //
 
 #include "Frame.hpp"
+#include "Instruction.hpp"
 #include <algorithm>
-#define max(x,y) ((x)>(y)?(x):(y))
+#define min(x,y) ((x)<(y)?(x):(y))
 
 namespace Floral {
     bool isScratch(Register reg) {
@@ -17,14 +18,15 @@ namespace Floral {
 
     long Frame::nextOffset() const {
         if (data.empty()) return 0;
-        long maxOffset = 0;
+        long long minOffset = 0;
         
-        for (auto iter = data.rbegin(); iter != data.rend(); iter++) {
-            if ((*iter).loc.reg == LOC_IS_NOT_REG) {
-                maxOffset = max(maxOffset, (*iter).loc.stack + (*iter).size);
+        for (auto iter = data.begin(); iter != data.end(); iter++) {
+            if (IS_RBPOFFSET((*iter).loc)) {
+                const auto pos = (*iter).loc.offset - (long long)(*iter).size;
+                minOffset = min(minOffset, pos);
             }
         }
-        return maxOffset;
+        return minOffset;
     }
     int Frame::avaliableScratch() {
         for (int r{}; r < static_cast<int>(Register::r15); r++) {

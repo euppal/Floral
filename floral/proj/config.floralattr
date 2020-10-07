@@ -1,0 +1,5 @@
+_["Floral project attributes file"]
+
+Main["main.floral"]
+Link{"std.o", "cbridge.o"}
+Flags{"-O"}

@@ -18,7 +18,7 @@ namespace Floral {
         
     public:
         Operator(TokenType type);
-        Type* overloadExists(Type* left, Type* right) const;
+        Type* overload(Type* left, Type* right) const;
     };
 }
 #endif /* Operator_hpp */

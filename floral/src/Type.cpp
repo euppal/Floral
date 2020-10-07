@@ -54,7 +54,11 @@ namespace Floral {
             str.push_back(']');
         } else if (isPointer()) {
             str.push_back('&');
-            str += _ptrType->des();
+            if (_ptrType->isConst()) {
+                str += '(' + _ptrType->des() + ')';
+            } else {
+                str += _ptrType->des();
+            }
         } else if (isTuple()) {
             std::cout << '(';
             for (size_t i {}; i < _tupleLen; ++i) {
@@ -160,7 +164,10 @@ namespace Floral {
         if (isPointer() || isFunction()) return 8;
         if (isString()) return 24;
         if (isArray()) return 24;
+        if (isBool()) return 1;
         if (isChar() || isUChar()) return 1;
+        if (isShort() || isUShort()) return 2;
+        if (isInt32() || isUInt32()) return 4;
         if (isInt() || isUInt()) return 8;
         if (isVoid()) return 0;
         if (isTuple()) return std::reduce(_tupleType, _tupleType + (_tupleLen - 1), 0UL, [](unsigned long lhs, Type* rhs) -> unsigned long {
@@ -169,6 +176,15 @@ namespace Floral {
         assert(false && "Not implemented");
     }
     size_t Type::alignment() const {
+        if (isPointer() || isFunction()) return 8;
+        if (isString()) return 24;
+        if (isArray()) return 24;
+        if (isBool()) return 8;
+        if (isChar() || isUChar()) return 8;
+        if (isShort() || isUShort()) return 8;
+        if (isInt32() || isUInt32()) return 8;
+        if (isInt() || isUInt()) return 8;
+        if (isVoid()) return 0;
         assert(false && "Not implemented");
     }
 
@@ -177,10 +193,12 @@ namespace Floral {
     }
 
     bool operator ==(const Type& lhs, const Type& rhs) {
+        if (lhs.isNumber() && rhs.isNumber()) // MARK: cheap and dirty solution to passing int literal to uints and the like
+            return true;
         if (lhs.isToken() && rhs.isToken())
             return *lhs._tknValue == *rhs._tknValue;
         if (lhs.isPointer() && rhs.isPointer())
-            return *lhs._ptrType == *rhs._ptrType;
+            return lhs._ptrType->isVoid() || rhs._ptrType->isVoid() || *lhs._ptrType == *rhs._ptrType;
         return false;
     }
 
@@ -188,7 +206,7 @@ namespace Floral {
         if (isString()) return "str";
         if (isBool()) return "b";
         if (isInt()) return "i";
-        if (isUInt()) return "u";
+        if (isUInt() || isPointer()) return "u";
         if (isInt32()) return "i32";
         if (isUInt32()) return "u32";
         if (isShort()) return "i16";

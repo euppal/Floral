@@ -6,22 +6,26 @@
 //  Copyright © 2020 Ethan Uppal. All rights reserved.
 //
 
-#include <vector>
-#include "Type.hpp"
-#include "AST.hpp"
-
 #ifndef Scope_hpp
 #define Scope_hpp
 
+#include <unordered_map>
+#include "Type.hpp"
+#include "AST.hpp"
+
 namespace Floral {
+    class Expression;
     class Scope {
-        std::vector<std::pair<std::string, Type*>> _items;
+        std::unordered_map<std::string, Type*> _types;
+        std::unordered_map<std::string, Expression*> _locals;
         
     public:
         Scope();
         
-        void insert(const std::string& name, Type* type);
-        Type* typeOf(const std::string& name);
+        bool exists(const std::string& name) const;
+        void insert(const std::string& name, Type* type, Expression* expr);
+        Type* typeOf(const std::string& name) const;
+        Expression* lookup(const std::string& name) const;
         struct Function* func;
     };
 }

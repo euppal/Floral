@@ -35,18 +35,23 @@ namespace Floral {
         return loc.line;
     }
     bool Token::isLiteral() const {
-        return type == TokenType::boolTrue || type == TokenType::boolFalse || type == TokenType::simpleString || type == TokenType::numIntDec || type == TokenType::numIntHex || type == TokenType::numFloating;
+        return type == TokenType::boolTrue || type == TokenType::boolFalse || type == TokenType::simpleString ||
+        type == TokenType::numIntDec || type == TokenType::numUIntDec ||
+        type == TokenType::numByteDec || type == TokenType::numUByteDec ||
+        type == TokenType::numShortDec || type == TokenType::numUShortDec ||
+        type == TokenType::numInt32Dec || type == TokenType::numUInt32Dec ||
+        type == TokenType::numIntHex || type == TokenType::numFloating;
     }
     bool Token::isOperator() const {
         auto intType { static_cast<int>(type) };
-        return (intType >= static_cast<int>(TokenType::plus) && intType <= static_cast<int>(TokenType::unequal)) || type == TokenType::leftParenthesis;
+        return (intType >= static_cast<int>(TokenType::plus) && intType <= static_cast<int>(TokenType::unequal)) && type != TokenType::assign;
     }
     bool tokenTypeIsOperator(TokenType type) {
         auto intType { static_cast<int>(type) };
-        return intType >= static_cast<int>(TokenType::plus) && intType <= static_cast<int>(TokenType::power);
+        return intType >= static_cast<int>(TokenType::plus) && intType <= static_cast<int>(TokenType::power) && type != TokenType::assign;
     }
     bool Token::isDeclarator() const {
-        return type == TokenType::func || type == TokenType::global || type == TokenType::let || type == TokenType::var;
+        return type == TokenType::func || type == TokenType::global;
     }
     bool Token::isType() const {
         auto intType { static_cast<int>(type) };

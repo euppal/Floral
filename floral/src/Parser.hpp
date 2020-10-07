@@ -21,9 +21,9 @@ namespace Floral {
         syscalls, C
     };
     class Parser: public ErrorReporting {
-        std::vector<Error> _errors;
         void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
-        
+        void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+
         private:
         std::vector<Token> tokens;
         size_t index;
@@ -38,15 +38,19 @@ namespace Floral {
         Type* type();
         Initializer* initializer();
         Declaration* function();
-        Declaration* bodydecl();
         Declaration* global();
-        LetDeclaration* let();
-        VarDeclaration* var();
-        Statement* statement();
-        CallStatement* callStm();
+        Statement* statement(bool checkSemicolon = true);
+        LetStatement* let(bool checkSemicolon = true);
+        VarStatement* var(bool checkSemicolon = true);
+        CallStatement* callStm(bool checkSemicolon = true);
         EmptyStatment* emptyStm();
-        LiteralStatement* literalStm();
-        ReturnStatement* returnStm();
+        ExpressionStatement* exprStm(bool checkSemicolon = true);
+        ReturnStatement* returnStm(bool checkSemicolon = true);
+        Statement* assignmentStm(bool checkSemicolon = true);
+        IfStatement* ifStm();
+        WhileStatement* whileStm();
+        ForStatement* forStm();
+        Block* block();
         Expression* expr();
         BinaryExpression* binaryexpr(Expression* lhs, OperatorComponentExpression* op);
         Expression* primaryexpr();
@@ -54,10 +58,11 @@ namespace Floral {
         Call* callexpr();
         Literal* literalexpr();
         SymbolExpression* symbolexpr();
+        UnsafeCast* unsafecastexpr();
         
         std::vector<Use> _use;
-        
         std::string _path;
+        int _synchr_count {};
         
         std::vector<std::pair<std::string, size_t>> similarTo(const std::string& str);
         
@@ -68,6 +73,8 @@ namespace Floral {
         Parser(std::vector<Token> &tokens);
         bool hasErrors() const;
         const std::vector<Error>& errors() const;
+        bool hasWarnings() const;
+        const std::vector<Error>& warnings() const;
         void setPath(const std::string& path);
     };
 }

@@ -20,16 +20,17 @@ namespace Floral {
     class StaticAnalyzer: public ErrorReporting {
         friend class v2::Compiler;
         
-        std::vector<Error> _errors;
         void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+        void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+        
         std::string _path;
         
         std::string strFromFunctionSignature(FunctionSignature funsig);
         Type* localLookupType(const std::string& id);
-        
         std::unordered_map<std::string, GlobalDeclaration*> globalSymbolTable;
         std::unordered_map<std::string, GlobalForwardDeclaration*> globalForwardDeclSymbolTable;
         std::unordered_map<std::string, Function*> functionSymbolTable;
+//        std::unordered_map<std::string, FunctionOverloads> functionSymbolTable;
         std::unordered_map<std::string, FunctionForwardDeclaration*> functionForwardDeclSymbolTable;
         
         std::vector<Scope> scopes;
@@ -45,11 +46,16 @@ namespace Floral {
         bool functionExists(const std::string& name, const Function::Parameters& params);
         Type* lookupRType(const std::string& name, const Function::Parameters& params);
         
+        std::vector<Expression*> _typeTrace;
+        
     public:
         int analyze(const File* file);
         
         bool hasErrors() const;
         const std::vector<Error>& errors() const;
+        bool hasWarnings() const;
+        const std::vector<Error>& warnings() const;
+        void dumpTypeTrace(void) const;
         
         GlobalDeclaration* lookupGlobal(std::string symbol);
         GlobalForwardDeclaration* lookupGlobalDecl(std::string symbol);

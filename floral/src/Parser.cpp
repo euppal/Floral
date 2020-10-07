@@ -18,6 +18,12 @@ namespace Floral {
         err.fix = fix;
         _errors.push_back(err);
     }
+    void Parser::warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
+        Error err {Error::warning, text, loc, errloc};
+        err.fix = fix;
+        err.isWarning = true;
+        _errors.push_back(err);
+    }
     void Parser::reset() {
         _errors.clear();
         index = 0;
@@ -53,6 +59,7 @@ namespace Floral {
         return { {current().pos(), current().contents.size()}, TokenType::invalid, "" };
     }
     void Parser::synchronize() {
+        _synchr_count++;
         const auto similars {similarTo(current().contents)};
         std::string fix;
         if (!similars.empty()) {
@@ -215,13 +222,6 @@ namespace Floral {
                 return nullptr;
         }
     }
-    Declaration* Parser::bodydecl() {
-        switch (current().type) {
-            case TokenType::let: return let();
-            case TokenType::var: return var();
-            default: return nullptr;
-        }
-    }
     Declaration* Parser::function() {
         const Token start { match(TokenType::func) };
         
@@ -235,6 +235,13 @@ namespace Floral {
         // Parameters
         Function::Parameters parameters;
         while (!eof() && current().type != TokenType::rightParenthesis) {
+            if (peek().type != TokenType::colon) {
+                parameters.push_back({ *Token::invalid, type() });
+                if (current().type != TokenType::rightParenthesis) {
+                    if (match(TokenType::comma, " separating function parameters").isInvalid()) return nullptr;
+                }
+                continue;
+            }
             auto pname = match(TokenType::identifier, " in parameter");
             match(TokenType::colon, " in parameter");
             auto ptype = type();
@@ -245,7 +252,7 @@ namespace Floral {
         }
         if (match(TokenType::rightParenthesis, " in function").isInvalid()) return nullptr;
         // Return type
-        Type* rtype { new Type(Token::invalid) };
+        Type* rtype { new Type(Token::invalid, true) };
         if (current().type == TokenType::colon) {
             advance();
             rtype = type();
@@ -267,18 +274,14 @@ namespace Floral {
             return nullptr;
         }
         // Statement body
-        std::vector<Node*> body {};
+        std::vector<Statement*> body {};
         while (!eof() && current().type != TokenType::rightBrace) {
-            if (current().isDeclarator()) {
-                if (auto decl = bodydecl()) {
-                    body.push_back(decl);
-                }
-            } else if (auto stm = statement()) {
+            if (auto stm = statement()) {
                 body.push_back(stm);
             } else {
                 report(
                        Error::parseDomain,
-                       "Something wrong with function body - cannot parse a statement",
+                       "Something wrong with function body - cannot parse statement",
                        { start, current() },
                        { current().pos(), current().contents.size() }
                 );
@@ -288,7 +291,7 @@ namespace Floral {
         Token end { match(TokenType::rightBrace, " at end of function body") };
         TextRegion loc { start, end };
         Function* func { new Function(loc, name, parameters, rtype) };
-        for (auto node: body) func->insert(node);
+        for (auto stm: body) func->insert(stm);
         func->staticAllocationSize = 0;
         return func;
     }
@@ -331,10 +334,10 @@ namespace Floral {
         const TextRegion loc { start, end };
         return new GlobalDeclaration(loc, name, gtype, init);
     }
-    LetDeclaration* Parser::let() {
+    LetStatement* Parser::let(bool checkSemicolon) {
         Token start { current() };
         advance();
-        Token name { match(TokenType::identifier, " in local constant declaration") };
+        Token name { match(TokenType::identifier, " in local constant statement") };
         Type* ltype { new Type(Token::invalid) };
         if (current().type == TokenType::colon) {
             advance();
@@ -346,7 +349,7 @@ namespace Floral {
         if (!init) {
             report(
                    Error::parseDomain,
-                   "Local constant declaration missing initializer",
+                   "Local constant statement missing initializer",
                    { start, current() },
                    { store.pos(), store.contents.size() }
             );
@@ -362,14 +365,17 @@ namespace Floral {
             );
             return nullptr;
         }
-        Token end { match(TokenType::semicolon, " at end of local constant declaration") };
+        if (checkSemicolon && match(TokenType::semicolon, " at end of local constant statement").isInvalid()) { return nullptr; }
+        index--;
+        Token end = current();
+        index++;
         TextRegion loc { start, end };
-        return new LetDeclaration(loc, name, ltype, init);
+        return new LetStatement(loc, name, ltype, init);
     }
-    VarDeclaration* Parser::var() {
+    VarStatement* Parser::var(bool checkSemicolon) {
         Token start { current() };
         advance();
-        Token name { match(TokenType::identifier, " in local variable declaration") };
+        Token name { match(TokenType::identifier, " in local variable statement") };
         Type* vtype { new Type(Token::invalid) };
         if (current().type == TokenType::colon) {
             advance();
@@ -378,7 +384,7 @@ namespace Floral {
         if (current().type == TokenType::semicolon) {
             Token end { current() };
             TextRegion loc { start, end };
-            return new VarDeclaration(loc, name, vtype, nullptr);
+            return new VarStatement(loc, name, vtype, nullptr);
         }
         Initializer* init { initializer() };
         // Can't do type inference with a zero initializer
@@ -391,15 +397,20 @@ namespace Floral {
             );
             return nullptr;
         }
-        Token end { match(TokenType::semicolon, " at end of local variable declaration") };
+        if (checkSemicolon && match(TokenType::semicolon, " at end of local variable statement").isInvalid()) { return nullptr; }
+        index--;
+        Token end = current();
+        index++;
         TextRegion loc { start, end };
-        return new VarDeclaration(loc, name, vtype, init);
+        return new VarStatement(loc, name, vtype, init);
     }
-    CallStatement* Parser::callStm() {
+    CallStatement* Parser::callStm(bool checkSemicolon) {
         Call* call { this->callexpr() };
         if (!call) return nullptr;
-        Token end { match(TokenType::semicolon, " in call statement") };
-        if (end.isInvalid()) return nullptr;
+        if (checkSemicolon && match(TokenType::semicolon, " at end of call statement").isInvalid()) { return nullptr; }
+        index--;
+        Token end = current();
+        index++;
         TextRegion loc { call->name, end };
         return new CallStatement(loc, call);
     }
@@ -408,6 +419,44 @@ namespace Floral {
         TextRegion loc { semicolon };
         return new EmptyStatment(loc);
     }
+    Statement* Parser::assignmentStm(bool checkSemicolon) {
+        const Token start = current();
+        Expression* assignTo = expr();
+        switch (current().type) {
+            case TokenType::semicolon: {
+                const Token end = current();
+                advance();
+                return new ExpressionStatement({ start, end }, assignTo);
+            }
+            case TokenType::assign: {
+                advance();
+                Expression* assignFrom = expr();
+                if (checkSemicolon && match(TokenType::semicolon, " in assignment statement", "Insert a semicolon at the end of the statement").isInvalid()) { return nullptr; }
+                index--;
+                Token end = current();
+                index++;
+                TextRegion loc { start, end };
+                return new Assignment(loc, assignTo, assignFrom);
+                break;
+            }
+            case TokenType::backarrow: {
+                advance();
+                Expression* assignFrom = expr();
+                if (checkSemicolon && match(TokenType::semicolon, " in pointer assignment statement", "Insert a semicolon at the end of the statement").isInvalid()) { return nullptr; }
+                index--;
+                Token end = current();
+                index++;
+                TextRegion loc { start, end };
+                return new PointerAssignment(loc, assignTo, assignFrom);
+                break;
+            }
+            default: {
+                report(Error::parseDomain, "Unexpected expression", { start, current() }, { start.pos(), current().pos() - start.pos() });
+                return nullptr;
+            }
+        }
+    }
+
     Literal* Parser::literalexpr() {
         const Token cpy = current(); advance();
         const TextRegion loc { cpy, cpy };
@@ -415,24 +464,56 @@ namespace Floral {
             case TokenType::boolTrue:
             case TokenType::boolFalse:
                 return new Literal(loc, Literal::LType::boolean, cpy);
-                break;
             case TokenType::simpleString:
                 return new Literal(loc, Literal::LType::simpleString, cpy);
-                break;
             case TokenType::numFloating:
                 return new Literal(loc, Literal::LType::floatingPointNumber, cpy);
-                break;
             case TokenType::numIntHex:
                 return new Literal(loc, Literal::LType::hexadecimalInteger, cpy);
-                break;
             case TokenType::numIntDec:
                 return new Literal(loc, Literal::LType::decimalInteger, cpy);
-                break;
+            case TokenType::numByteDec:
+                return new Literal(loc, Literal::LType::decimalByte, cpy);
+            case TokenType::numShortDec:
+                return new Literal(loc, Literal::LType::decimalShort, cpy);
+            case TokenType::numInt32Dec:
+                return new Literal(loc, Literal::LType::decimalInt32, cpy);
+            case TokenType::numUIntDec:
+                return new Literal(loc, Literal::LType::decimalUInteger, cpy);
+            case TokenType::numUByteDec:
+                return new Literal(loc, Literal::LType::decimalUByte, cpy);
+            case TokenType::numUShortDec:
+                return new Literal(loc, Literal::LType::decimalUShort, cpy);
+            case TokenType::numUInt32Dec:
+                return new Literal(loc, Literal::LType::decimalUInt32, cpy);
             default:
                 return nullptr;
         }
     }
+    UnsafeCast* Parser::unsafecastexpr() {
+        const Token start = current();
+        advance();
+        if (match(TokenType::less, " in unsafe cast expression").isInvalid()) return nullptr;
+        Type* t = type();
+        if (match(TokenType::greater, " in unsafe cast expression").isInvalid()) return nullptr;
+        if (match(TokenType::leftParenthesis, " in unsafe cast expression").isInvalid()) return nullptr;
+        Expression* e = expr();
+        const Token end = match(TokenType::rightParenthesis, " in unsafe cast expression");
+        if (end.isInvalid()) return nullptr;
+        return new UnsafeCast({ start, end }, t, e);
+    }
+
     Expression* Parser::expr() {
+        if (current().type == TokenType::sizeof_) {
+            const Token start = current();
+            advance();
+            if (match(TokenType::leftParenthesis, " in sizeof expression").isInvalid()) return nullptr;
+            Type* t = type();
+            if (match(TokenType::rightParenthesis, " in sizeof expression").isInvalid()) return nullptr;
+            return new SizeOfType({ start, current() }, t);
+        } else if (current().type == TokenType::unsafe_cast) {
+            return unsafecastexpr();
+        }
         Expression* lhs = primaryexpr();
         if (current().isOperator()) {
             OperatorComponentExpression* op = this->op();
@@ -445,7 +526,7 @@ namespace Floral {
         const Token start { current() };
         if (current().isOperator()) {
             OperatorComponentExpression* nextOp = this->op();
-            if (nextOp->precedence() > op->precedence()) {
+            if (nextOp->precedence(OperatorComponentExpression::infix) > op->precedence(OperatorComponentExpression::infix)) {
                 const Token end { current() };
                 return new BinaryExpression({ start, end }, lhs, op, binaryexpr(rhs, nextOp));
             } else {
@@ -497,28 +578,15 @@ namespace Floral {
         TextRegion loc { name, end };
         return new Call(loc, name, arguments);
     }
-    LiteralStatement* Parser::literalStm() {
-        Token start { current() };
-        Literal* lit { literalexpr() };
-        advance();
-        Token end { match(TokenType::semicolon, " in literal statement") };
-        return new LiteralStatement({ start, end }, lit);
-    }
-    ReturnStatement* Parser::returnStm() {
+    ReturnStatement* Parser::returnStm(bool checkSemicolon) {
         Token start { match(TokenType::return_, " in return statement") };
         if (current().type != TokenType::semicolon) {
             auto value { expr() };
-            Token end { match(TokenType::semicolon, " in return statement") };
+            if (checkSemicolon && match(TokenType::semicolon, " at end of return statement").isInvalid()) { return nullptr; }
+            index--;
+            Token end = current();
+            index++;
             TextRegion loc { start, end };
-            if (end.isInvalid()) {
-                report(
-                       Error::parseDomain,
-                       "Return statement does not terminate with a semicolon after exprssion",
-                       loc,
-                       { end.pos(), end.contents.size() }
-                );
-                return nullptr;
-            }
             return new ReturnStatement(loc, value);
         }
         Token end { current() };
@@ -526,20 +594,83 @@ namespace Floral {
         TextRegion loc { start, end };
         return new ReturnStatement(loc, nullptr);
     }
-    Statement* Parser::statement() {
-        if (current().isLiteral())
-            return literalStm();
+    IfStatement* Parser::ifStm() {
+        Token start { match(TokenType::if_, " in if statement") };
+        if (start.isInvalid() || match(TokenType::leftParenthesis, " in condition").isInvalid()) return nullptr;
+        Expression* condition = expr();
+        if (match(TokenType::rightParenthesis, " in condition").isInvalid()) return nullptr;
+        Block* body = block();
+        index--;
+        Token end { current() };
+        index++;
+        return new IfStatement({ start, end }, condition, body);
+    }
+    WhileStatement* Parser::whileStm() {
+        Token start { match(TokenType::while_, " in while statement") };
+        if (start.isInvalid() || match(TokenType::leftParenthesis, " in condition").isInvalid()) return nullptr;
+        Expression* condition = expr();
+        if (match(TokenType::rightParenthesis, " in condition").isInvalid()) return nullptr;
+        Block* body = block();
+        index--;
+        Token end { current() };
+        index++;
+        return new WhileStatement({ start, end }, condition, body);
+    }
+    ForStatement* Parser::forStm() {
+        Token start { match(TokenType::for_, " in for statement") };
+        if (start.isInvalid() || match(TokenType::leftParenthesis, " in for statement").isInvalid()) return nullptr;
+        Statement* init = statement();
+        Expression* check = expr();
+        if (match(TokenType::semicolon, " in for statement").isInvalid()) return nullptr;
+        Statement* modify = statement(false);
+        if (match(TokenType::rightParenthesis, " in for statement").isInvalid()) return nullptr;
+        Block* body = block();
+        index--;
+        Token end { current() };
+        index++;
+        return new ForStatement({ start, end }, init, check, modify, body);
+    }
+    Block* Parser::block() {
+        Token start { match(TokenType::leftBrace, " in block") };
+        if (start.isInvalid()) return nullptr;
+        std::vector<Node*> body {};
+        while (!eof() && current().type != TokenType::rightBrace) {
+            if (auto stm = statement()) {
+                body.push_back(stm);
+            } else {
+                report(
+                       Error::parseDomain,
+                       "Something wrong with block body - cannot parse a statement",
+                       { start, current() },
+                       { current().pos(), current().contents.size() }
+                );
+                synchronize();
+            }
+        }
+        const Token end = match(TokenType::rightBrace, " at end of block");
+        if (end.isInvalid()) return nullptr;
+        return new Block({ start, end }, body);
+    }
+    Statement* Parser::statement(bool checkSemicolon) {
         switch (current().type) {
+            case TokenType::var:
+                return var(checkSemicolon);
+            case TokenType::let:
+                return let(checkSemicolon);
             case TokenType::return_:
-                return returnStm();
+                return returnStm(checkSemicolon);
+            case TokenType::if_:
+                return ifStm();
+            case TokenType::while_:
+                return whileStm();
+            case TokenType::for_:
+                return forStm();
+            case TokenType::leftBrace:
+                return block();
             case TokenType::semicolon:
                 return emptyStm();
-            case TokenType::identifier:
-                if (peek().type == TokenType::leftParenthesis)
-                    return callStm();
-                break;
             default:
-                break;
+                return assignmentStm(checkSemicolon);
         }
         return nullptr;
     }
@@ -555,6 +686,9 @@ namespace Floral {
         File *file { new File(fileLoc, _path, std::vector<Node*>()) };
         while (!eof()) {
             switch (current().type) {
+                case TokenType::macro:
+                    advance();
+                    break;
                 case TokenType::using_: {
                     const Token start {current()};
                     advance();
@@ -607,12 +741,16 @@ namespace Floral {
                     }
                     break;
                 default: {
-                    if (auto stm = statement())
+                    if (auto stm = statement()) {
                         file->insert(stm);
-                    else
+                    } else {
+                        if (_synchr_count > 3) {
+                            return nullptr;
+                        }
                         synchronize();
                     }
                     break;
+                }
             }
         }
         return file;
@@ -626,12 +764,18 @@ namespace Floral {
     const std::vector<Error>& Parser::errors() const {
         return _errors;
     }
+    bool Parser::hasWarnings() const {
+        return !_warnings.empty();
+    }
+    const std::vector<Error>& Parser::warnings() const {
+        return _warnings;
+    }
     void Parser::setPath(const std::string& path) {
         _path = path;
     }
     std::vector<std::pair<std::string, size_t>> Parser::similarTo(const std::string& str) {
         std::vector<std::pair<std::string, size_t>> didYouMean;
-        for (auto pair: keywords) {
+        for (auto pair: keywordMap) {
             size_t correct{};
             for (auto c: str) {
                 if (c == pair.first[correct]) {

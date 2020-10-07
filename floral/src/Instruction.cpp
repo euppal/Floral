@@ -63,8 +63,8 @@ namespace Floral {
     const std::string Location::str() const {
         if (isLiteral) return isSigned ? std::to_string(value.s) : std::to_string(value.u);
         else if (isLbl) return "[rel " + prefixed(lbl) + ']';
-        else if (reg == LOC_IS_NOT_REG) return (std::string)"[rbp" + (stack > 0 ? "+" : "") + (stack == 0 ? "" : std::to_string(stack)) + ']';
-        else return registerNames[reg];
+        const auto item = registerNames[reg] + (offset ? ((offset > 0 ? "+" : "") + std::to_string(offset)) : "");
+        return isDereference ? ('[' + item + ']') : item;
     }
     const std::string MoveOperation::str() const {
         const static std::string sizeTypeNames[] {
@@ -111,6 +111,13 @@ namespace Floral {
     const std::string ReturnOperation::str() const {
         return INDENT "ret" + ADD_COMMENT_IF_EXISTS;
     }
+    const std::string CmpOperation::str() const {
+        return INDENT "cmp " + dest.str() + ", " + src.str() + ADD_COMMENT_IF_EXISTS;
+    }
+    const std::string JumpOperation::str() const {
+        return INDENT + jtypemap[static_cast<int>(type)] + ' ' + prefixed(lbl) + ADD_COMMENT_IF_EXISTS;
+    }
+
     const std::string join(const std::vector<Instruction*>& instructions, const std::string& sep, bool spaceOutLabels) {
         std::string result;
         bool isFirstLabel = false;
@@ -156,15 +163,21 @@ namespace Floral {
     }
 
     Location RegisterLocation(Register reg) {
-        return {static_cast<int>(reg), -1, false, false, 0, false, ""};
+        return {static_cast<int>(reg), 0, false, false, 0, false, "", false};
+    }
+    Location ValueAtRegisterLocation(Register reg) {
+        return {static_cast<int>(reg), 0, false, false, 0, false, "", true};
     }
     Location RBPOffsetLocation(long offset) {
-        return {LOC_IS_NOT_REG, offset, false, false, 0, false, ""};
+        return {static_cast<int>(Register::rbp), offset, false, false, 0, false, "", true};
     }
     Location NumberLiteralLocation(bool isSigned, union SignedUnsigned value) {
-        return {LOC_IS_NOT_REG, -1, true, isSigned, value, false, ""};
+        return {LOC_IS_NOT_REG, 0, true, isSigned, value, false, "", false};
     }
     Location RelativeLabelLocation(const std::string& lbl) {
-        return {LOC_IS_NOT_REG, -1, false, false, 0, true, lbl};
+        return {LOC_IS_NOT_REG, 0, false, false, 0, true, lbl, true};
+    }
+    bool operator ==(const Location& lhs, const Location& rhs) {
+        return (lhs.reg == rhs.reg) && (lhs.offset == rhs.offset) && (lhs.lbl == rhs.lbl) && (lhs.value.u == rhs.value.u) && (lhs.isDereference == rhs.isDereference);
     }
 }

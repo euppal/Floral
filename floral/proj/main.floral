@@ -1,3 +1,6 @@
-func main(): Indt {
+func print(const &Char);
+
+func main(): Int {
+    print("Yay, \"quotes!\"\n");
     return 0;
 }

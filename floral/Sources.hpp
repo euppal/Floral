@@ -22,5 +22,6 @@
 #include "src/Other.h"
 #include "src/SPA.hpp"
 #include "src/CommandParser.hpp"
+#include "src/Colors.hpp"
 
 #endif /* Sources_h */

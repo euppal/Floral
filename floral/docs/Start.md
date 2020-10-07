@@ -28,3 +28,10 @@ Hello World!
 $
 ```
 
+To link
+nasm -f macho64 asm_out.nasm -o asm_out.o && ld -o asm_out asm_out.o -lSystem
+nasm -f macho64 asm_out.nasm -o asm_out.o && ld -o asm_out asm_out.o ~/Programming/floral-src/stdlib/FILE.o -lSystem
+nasm -f macho64 asm_out.nasm -o asm_out.o && ld -o asm_out asm_out.o ~/Programming/floral-src/stdlib/dynamic.o ~/Programming/floral-src/stdlib/sys.o -lSystem
+nasm -f macho64 asm_out.nasm -o asm_out.o && ld -o asm_out asm_out.o ~/Programming/floral-src/stdlib/obj/std.o ~/Programming/floral-src/stdlib/obj/cbridge.o -lSystem
+nasm -f macho64 asm_out.nasm -o asm_out.o && ld -o asm_out asm_out.o ~/Programming/floral-src/stdlib/int-print.o -lSystem
+nasm -f macho64 asm_out.nasm -o asm_out.o && nasm -f macho64 asm_out2.nasm -o asm_out2.o && ld -o asm_out asm_out.o asm_out2.o ~/Programming/floral-src/stdlib/obj/std.o -lSystem

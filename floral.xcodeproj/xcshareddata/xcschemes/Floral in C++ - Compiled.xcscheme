@@ -15,8 +15,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "587D162424A9306100D20ED2"
-               BuildableName = "Floral in C++ - Compiled"
-               BlueprintName = "Floral in C++ - Compiled"
+               BuildableName = "floralc"
+               BlueprintName = "floralc"
                ReferencedContainer = "container:floral.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,8 +45,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "587D162424A9306100D20ED2"
-            BuildableName = "Floral in C++ - Compiled"
-            BlueprintName = "Floral in C++ - Compiled"
+            BuildableName = "floralc"
+            BlueprintName = "floralc"
             ReferencedContainer = "container:floral.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -62,8 +62,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "587D162424A9306100D20ED2"
-            BuildableName = "Floral in C++ - Compiled"
-            BlueprintName = "Floral in C++ - Compiled"
+            BuildableName = "floralc"
+            BlueprintName = "floralc"
             ReferencedContainer = "container:floral.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

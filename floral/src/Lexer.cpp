@@ -15,6 +15,30 @@
 namespace Floral {
     Lexer::Lexer(const std::string &code):
     code(code) {};
+    
+    void Lexer::report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
+        Error err {domain, text, loc, errloc};
+        err.fix = fix;
+        _errors.push_back(err);
+    }
+    void Lexer::warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
+        Error err {Error::warning, text, loc, errloc};
+        err.fix = fix;
+        err.isWarning = true;
+        _errors.push_back(err);
+    }
+    bool Lexer::hasErrors() const {
+        return !_errors.empty();
+    }
+    const std::vector<Error>& Lexer::errors() const {
+        return _errors;
+    }
+    bool Lexer::hasWarnings() const {
+        return !_warnings.empty();
+    }
+    const std::vector<Error>& Lexer::warnings() const {
+        return _warnings;
+    }
 
     void Lexer::reset() {
         // Restores lexer to original state
@@ -77,6 +101,9 @@ namespace Floral {
     bool Lexer::isNumTermin() {
         return eof() || isSpaceChar() || current() == '\n';
     }
+    bool Lexer::isNumSuffix() {
+        return current() == 'u' || current() == 'b' || current() == 'w' || current() == 'd';
+    }
     bool Lexer::isQuoteChar() {
         return current() == '\"';
     }
@@ -84,15 +111,18 @@ namespace Floral {
         return current() == '.';
     }
 
-    Token Lexer::multichar() {
+    Token Lexer::multichar(bool substitute) {
         std::string id {};
         TokenLoc cachedLoc { loc() };
         do {
             id.push_back(current());
             next();
         } while (isIdentifierChar());
-        if (Floral::keywords.find(id) != Floral::keywords.end())
-            return { cachedLoc, Floral::keywords.at(id), id };
+        if (substitute && _defines.find(id) != _defines.end()) {
+            id = _defines[id];
+        }
+        if (Floral::keywordMap.find(id) != Floral::keywordMap.end())
+            return { cachedLoc, Floral::keywordMap.at(id), id };
         return { cachedLoc, TokenType::identifier, id };
     }
 
@@ -103,6 +133,12 @@ namespace Floral {
         while (!eof() && !isQuoteChar()) {
             str.push_back(current());
             advance();
+            if (current() == '\\') {
+                str.push_back(current());
+                advance();
+                str.push_back(current());
+                advance();
+            }
         }
         if (isQuoteChar())
             advance();
@@ -115,14 +151,22 @@ namespace Floral {
         std::string num {};
         if (current() == '0' && peek() == 'x') {
             next(2);
-            while (!isNumTermin() && isHexDigitChar()) {
+            while ((!isNumTermin() && isHexDigitChar()) || current() == '_') {
+                if (current() == '_') {
+                    next();
+                    continue;
+                }
                 num.push_back(current());
                 advance();
             }
             return { cachedLoc, TokenType::numIntHex, num };
         }
         bool dot { false };
-        while (!isNumTermin() && isDigitChar()) {
+        while ((!isNumTermin() && !isNumSuffix() && isDigitChar()) || current() == '_') {
+            if (current() == '_') {
+                next();
+                continue;
+            }
             num.push_back(current());
             next();
             if (isDotChar()) {
@@ -133,7 +177,47 @@ namespace Floral {
                 next();
             }
         }
-        return { cachedLoc, dot ? TokenType::numFloating : TokenType::numIntDec, num };
+        uint8_t flags {};
+        while (!eof() && isNumSuffix()) {
+            switch (current()) {
+                case 'u':
+                    flags |= 0b0001;
+                    break;
+                case 'b':
+                    flags |= 0b0010;
+                    break;
+                case 'w':
+                    flags |= 0b0100;
+                    break;
+                case 'd':
+                    flags |= 0b1000;
+                    break;
+            }
+            pos++;
+        }
+        static const TokenType num_types[16] {
+            TokenType::numIntDec,
+            TokenType::numUIntDec,
+            TokenType::numByteDec,
+            TokenType::numUByteDec,
+            TokenType::numShortDec,
+            TokenType::numUShortDec,
+            TokenType::invalid,
+            TokenType::invalid,
+            TokenType::numInt32Dec,
+            TokenType::numUInt32Dec,
+            TokenType::invalid,
+            TokenType::invalid,
+            TokenType::invalid,
+            TokenType::invalid,
+            TokenType::invalid,
+            TokenType::invalid,
+        };
+        const TokenType num_type { num_types[flags] };
+        if (num_type == TokenType::invalid) {
+            report(Error::lexDomain, "Unknown integer type suffix", { pos, 1, line, line }, { pos, 1 });
+        }
+        return { cachedLoc, dot ? TokenType::numFloating : num_type, num };
     }
     
     Token Lexer::drive() {
@@ -158,6 +242,117 @@ namespace Floral {
         // Tries to lex a token
         Token tmp { _tkn(TokenType::invalid, "") };
         switch (current()) {
+            case '\'': {
+                pos++;
+                if (current() == '\n') {
+                    report(Error::lexDomain, "Unexpected newline in character literal", { pos - 1, 1, line, line }, { pos - 1, 1 }, "Did you mean to use '\\n' instead?");
+                    break;
+                }
+                const char c = current();
+                pos++;
+                if (current() == '\'') {
+                    tmp = _tkn(TokenType::numByteDec, std::to_string(c));
+                } else {
+                    report(Error::lexDomain, "Missing single quote in character literal", { pos, 1, line, line }, { pos, 1 }, "Replace this position with a single quote");
+                }
+                break;
+            }
+            case '#': {
+                const size_t tpos = pos;
+                pos++;
+                std::string prepr_macro;
+                while (!eof() && isalpha(current())) {
+                    prepr_macro.push_back(current());
+                    pos++;
+                }
+                pos--;
+                if (prepr_macro == "line") {
+                    tmp = _tkn(TokenType::numUIntDec, std::to_string(line));
+                } else if (prepr_macro == "define") {
+                    next();
+                    if (current() != ' ') {
+                        report(Error::lexDomain, "Expected space after define macro", { pos, 1, line, line }, { pos, line});
+                        break;
+                    }
+                    next();
+                    const std::string name = multichar(false).contents;
+                    if (current() == '\n') {
+                        tmp = _tkn(TokenType::macro, "#define " + name);
+                        _defines.insert({ name, "" });
+                        break;
+                    } else if (current() == ' ') {
+                        next();
+                        std::string value;
+                        while (!eof() && current() != '\n') {
+                            value.push_back(current());
+                            next();
+                        }
+                        tmp = _tkn(TokenType::macro, "#define " + name + ' ' + value);
+                        _defines.insert({ name, value });
+                        break;
+                    }
+                } else if (prepr_macro == "undef") {
+                    next();
+                    if (current() != ' ') {
+                        report(Error::lexDomain, "Expected space after undef macro", { pos, 1, line, line }, { pos, line});
+                        break;
+                    }
+                    next();
+                    const std::string name = multichar(false).contents;
+                    if (current() != '\n') {
+                        report(Error::lexDomain, "Expected newline at end of undef macro", { pos, 1, line, line }, { pos, line});
+                        break;
+                    }
+                    tmp = _tkn(TokenType::macro, "#undef " + name);
+                    _defines.erase(name);
+                }
+                else if (prepr_macro == "ifdef") {
+                    next();
+                    if (current() != ' ') {
+                        report(Error::lexDomain, "Expected space after ifdef macro", { pos, 1, line, line }, { pos, line});
+                        break;
+                    }
+                    next();
+                    const std::string name = multichar(false).contents;
+                    if (current() != '\n') {
+                        report(Error::lexDomain, "Expected newline at end of ifdef macro", { pos, 1, line, line }, { pos, line});
+                        break;
+                    }
+                    tmp = _tkn(TokenType::macro, "#ifdef " + name);
+                    if (std::find_if(_defines.begin(), _defines.end(), [name](auto pair) -> bool { return pair.first == name; }) == _defines.end()) {
+                        while (!(current() == '#' && peek() == 'e')) {
+                            advance();
+                        }
+                        pos--;
+                    }
+                } else if (prepr_macro == "ifndef") {
+                    next();
+                    if (current() != ' ') {
+                        report(Error::lexDomain, "Expected space after ifndef macro", { pos, 1, line, line }, { pos, line});
+                        break;
+                    }
+                    next();
+                    const std::string name = multichar(false).contents;
+                    if (current() != '\n') {
+                        report(Error::lexDomain, "Expected newline at end of ifndef macro", { pos, 1, line, line }, { pos, line});
+                        break;
+                    }
+                    tmp = _tkn(TokenType::macro, "#ifdef " + name);
+                    if (std::find_if(_defines.begin(), _defines.end(), [name](auto pair) -> bool { return pair.first == name; }) != _defines.end()) {
+                        while (!(current() == '#' && peek() == 'e')) {
+                            advance();
+                        }
+                        pos--;
+                    }
+                } else if (prepr_macro == "endif") {
+                    tmp = _tkn(TokenType::macro, "#endif");
+                    break;
+                }
+                else {
+                    report(Error::lexDomain, "Unknown preproccessor macro", { tpos, pos - tpos, line, line }, { tpos, 1 });
+                }
+                break;
+            }
             case '(':
                 tmp = _tkn(TokenType::leftParenthesis, "(");
                 break;
@@ -183,21 +378,31 @@ namespace Floral {
                 tmp = _tkn(TokenType::comma, ",");
                 break;
             case '+':
-                tmp = _tkn(TokenType::plus, "+");
+                if (peek() == '+') {
+                    tmp = _tkn(TokenType::inc, "++");
+                    next();
+                } else {
+                    tmp = _tkn(TokenType::plus, "+");
+                }
                 break;
             case '-':
                 if (peek() == '>') {
                     tmp = _tkn(TokenType::arrow, "->");
                     next();
-                } else
+                } else if (peek() == '-') {
+                    tmp = _tkn(TokenType::dec, "--");
+                    next();
+                } else {
                     tmp = _tkn(TokenType::minus, "-");
+                }
                 break;
             case '*':
                 if (peek() == '=') {
                     tmp = _tkn(TokenType::power, "**");
                     next();
-                } else
+                } else {
                     tmp = _tkn(TokenType::multiply, "*");
+                }
                 break;
             case '/':
                 tmp = _tkn(TokenType::divide, "/");
@@ -235,8 +440,12 @@ namespace Floral {
                 if (peek() == '=') {
                     tmp = _tkn(TokenType::lessEqual, "<=");
                     next();
-                } else
+                } if (peek() == '-') {
+                    tmp = _tkn(TokenType::backarrow, "<-");
+                    next();
+                } else {
                     tmp = _tkn(TokenType::less, "<");
+                }
                 break;
             case '>':
                 if (peek() == '=') {

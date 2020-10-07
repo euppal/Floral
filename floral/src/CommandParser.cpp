@@ -25,22 +25,33 @@ namespace Floral {
         while (index++, --command.argc) {
             const char* arg = command.argv[index];
             if (arg[0] == '-') {
-                if (strncmp(arg + 1, "O", 2) == 0) {
-                    std::cout << "Arg: Optimize\n";
-                    _optimization = 1;
+                if (strncmp(arg + 1, "O", 1) == 0) {
+//                    std::cout << "Arg: Optimize\n";
+                    if ((arg + 1)[1]) {
+                        std::string opt { arg + 1 };
+                        std::string_view view { opt };
+                        view.remove_prefix(1);
+                        opt = view;
+                        _optimization = atoi(opt.c_str());
+                        if (_optimization > 3) {
+                            report(Error::parseDomain, "Unknown optimization level", { 0, 0, 0, 0}, { 0, 0 });
+                        }
+                    } else {
+                        _optimization = 1;
+                    }
                 } else if (strncmp(arg + 1, "-use-C", 2) == 0) {
-                    std::cout << "Arg: Include the C functions header\n";
+//                    std::cout << "Arg: Include the C functions header\n";
                     _useC = true;
                 } else if (strncmp(arg + 1, "-no-stdlib-header", 2) == 0) {
-                    std::cout << "Arg: Do not include the stdlib header\n";
+//                    std::cout << "Arg: Do not include the stdlib header\n";
                     _noStdlibHeader = true;
                 } else if (false) {
                     
                 }
             } else {
                 std::string str { arg };
-                if (!(ends_with(str, ".floral") || ends_with(str, ".fh") || ends_with(str, ".s") || ends_with(str, ".asm"))) {
-                    std::cout << "The Floral compiler only accepts .floral/.fh files and .s/.asm files for assembly output.\n";
+                if (!(ends_with(str, ".floral") || ends_with(str, ".fh") || ends_with(str, ".s") || ends_with(str, ".asm") || ends_with(str, ".nasm"))) {
+                    report(Error::parseDomain, "The Floral compiler only accepts .floral/.fh files and .s/.asm/.nasm files for assembly output.\n", { 0, 0, 0, 0}, { 0, 0 });
                     return;
                 }
                 files.push_back(str);
@@ -69,13 +80,25 @@ namespace Floral {
         err.fix = fix;
         _errors.push_back(err);
     }
-        
+    void CommandParser::warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
+        Error err {Error::warning, text, loc, errloc};
+        err.fix = fix;
+        err.isWarning = true;
+        _errors.push_back(err);
+    }
     bool CommandParser::hasErrors() const {
         return !_errors.empty();
     }
     const std::vector<Error>& CommandParser::errors() const {
         return _errors;
     }
+    bool CommandParser::hasWarnings() const {
+        return !_warnings.empty();
+    }
+    const std::vector<Error>& CommandParser::warnings() const {
+        return _warnings;
+    }
+
 
     const std::vector<std::string>& CommandParser::infiles() const {
         return _infiles;

@@ -37,6 +37,7 @@ namespace Floral {
         }
         
         std::string last() {
+            if (components.empty()) return _path;
             return _path.substr(components.back().start, components.back().len);
         }
         void drop() {
