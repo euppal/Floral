@@ -6,9 +6,13 @@
 //  Copyright © 2020 Ethan Uppal. All rights reserved.
 //
 
-#include "test.hpp"
+#include "CommandParser.hpp"
+void driver(Floral::CommandParser& commandParse);
 
 int main(int argc, const char* argv[]) {
-    test(argc, argv);
+    Floral::CommandParser commandParser (
+        { argc, argv }
+    );
+    driver(commandParser);
     return 0;
 }

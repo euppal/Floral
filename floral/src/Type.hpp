@@ -68,6 +68,7 @@ namespace Floral {
         
         bool isToken(void) const;
         bool isPointer(void) const;
+        bool isCString(void) const;
         bool isFunction(void) const;
         bool isArray(void) const;
         bool isTuple(void) const;

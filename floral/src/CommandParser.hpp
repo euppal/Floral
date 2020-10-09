@@ -15,7 +15,7 @@
 
 namespace Floral {
     enum class CmdFileExt {
-        floral, fh, c, nasm, exec, unknown
+        floral, fh, c, nasm, exec, object, unknown
     };
     typedef std::pair<std::string, CmdFileExt> CmdFile;
 
@@ -31,7 +31,7 @@ namespace Floral {
         CmdFile _outfile;
         int _optimization = 0;
         int _useC = false;
-        int _noStdlibHeader = false;
+        int _noStdlib = false;
         int _logDebugInfo = false;
         int _catSrc = false;
         int _typeTrace = false;
@@ -48,11 +48,11 @@ namespace Floral {
         bool hasWarnings() const;
         const std::vector<Error>& warnings() const;
         
-        const std::vector<CmdFile>& infiles() const;
+        std::vector<CmdFile>& infiles();
         const CmdFile& outfile() const;
         const int optimization() const;
         const int usingCFunctions() const;
-        const int notUsingStdlibHeader() const;
+        const int notUsingStdlib() const;
         const int logDebugInfo() const;
         const int catSource() const;
         const int typeTrace() const;

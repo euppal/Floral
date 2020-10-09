@@ -18,7 +18,7 @@
 
 namespace Floral {
     enum class Use {
-        syscalls, C
+        stdlib, C
     };
     class Parser: public ErrorReporting {
         void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");

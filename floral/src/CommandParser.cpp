@@ -40,11 +40,11 @@ namespace Floral {
                         _optimization = 1;
                     }
                 } else if (strncmp(arg + 1, "-use-C", 6) == 0) {
-//                    std::cout << "Arg: Include the C functions header\n";
+//                    std::cout << "Arg: Include the C functions bridge\n";
                     _useC = true;
-                } else if (strncmp(arg + 1, "-no-stdlib-header", 17) == 0) {
-//                    std::cout << "Arg: Do not include the stdlib header\n";
-                    _noStdlibHeader = true;
+                } else if (strncmp(arg + 1, "-no-stdlib", 17) == 0) {
+//                    std::cout << "Arg: Do not link with the stdlib\n";
+                    _noStdlib = true;
                 } else if (strncmp(arg + 1, "o", 1) == 0) {
                     index++; command.argc--;
                     _outfile = {
@@ -95,8 +95,7 @@ namespace Floral {
         return _warnings;
     }
 
-
-    const std::vector<CmdFile>& CommandParser::infiles() const {
+    std::vector<CmdFile>& CommandParser::infiles() {
         return _infiles;
     }
     const CmdFile& CommandParser::outfile() const {
@@ -108,8 +107,8 @@ namespace Floral {
     const int CommandParser::usingCFunctions() const {
         return _useC;
     }
-    const int CommandParser::notUsingStdlibHeader() const {
-        return _noStdlibHeader;
+    const int CommandParser::notUsingStdlib() const {
+        return _noStdlib;
     }
     const int CommandParser::logDebugInfo() const {
         return _logDebugInfo;

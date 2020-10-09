@@ -52,28 +52,28 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
+            argument = "-o out"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "/Users/ethanuppal/Library/&quot;Mobile Documents&quot;/com~apple~CloudDocs/&quot;Xcode Projects&quot;/floral/floral/proj/main.floral"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--verbose"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "--type-trace"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "hello.c"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "-o out"
+            argument = "/Users/ethanuppal/Library/&quot;Mobile Documents&quot;/com~apple~CloudDocs/&quot;Xcode Projects&quot;/floral/floral/proj/hello.floral"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-O"
             isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--verbose"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--type-trace"
+            isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
    </LaunchAction>

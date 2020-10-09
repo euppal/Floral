@@ -11,11 +11,13 @@ _floralid_main:
   pop rbp ; restore old frame
   ret ; return from function
 
+extern _init_floral
 global _main ; _main is the entry point in macOS nasm
 _main:
-  sub rsp, 8 ; so stack is aligned upon call
-  call _floralid_main ; call the floral main function
-  add rsp, 8 ; restore stack pointer
-  mov rdi, rax ; exit code
-  mov eax, 0x2000001 ; exit syscall
+  sub rsp, 8 ; @ so stack is aligned upon calls
+  call _init_floral
+  call _floralid_main ; @ call the floral main function
+  add rsp, 8 ; @ restore stack pointer
+  mov rdi, rax ; @ exit code
+  mov eax, 0x2000001 ; @ exit syscall
   syscall

@@ -53,6 +53,46 @@ namespace Floral { namespace v2 {
         dataSection.instructions.clear();
         
         textSection.spaceOutLabels = true;
+        analyzer.reset();
+        _errors.clear();
+        _warnings.clear();
+    }
+
+    std::string Compiler::staticEvalulate(Expression* staticEvalExpr) {
+        assert(staticEvalExpr->info.isStaticEval && "Expression was not static eval");
+        if (auto literal = dynamic_cast<Literal*>(staticEvalExpr)) {
+            auto descr = literal->description();
+            if (descr == TYPE_STRING_INDICATOR) {
+                descr = literal->value().contents;
+                this->_strprocess(descr);
+                StringData sd("", descr);
+                descr = sd.str();
+                descr.erase(descr.begin(), descr.begin() + 16);
+                return descr;
+            }
+            return descr;
+        } else if (auto binary = dynamic_cast<BinaryExpression*>(staticEvalExpr)) {
+            Expression* left = binary->left();
+            Expression* right = binary->right();
+            
+            switch (binary->op()->tkntype()) {
+                case TokenType::plus:
+                    return std::to_string(atoll(staticEvalulate(left).c_str()) + atoll(staticEvalulate(right).c_str()));                    
+                default:
+                    break;
+            }
+        } else if (auto symbol = dynamic_cast<SymbolExpression*>(staticEvalExpr)) {
+            const auto gbl = analyzer.lookupGlobal(symbol->value().contents);
+            const auto init = gbl->initializer();
+            if (init->type == Initializer::InitializerType::zero) {
+                return "0";
+            } else if (auto direct = dynamic_cast<DirectInitializer*>(init)) {
+                return staticEvalulate(direct->expr());
+            } else if (auto copy = dynamic_cast<CopyInitializer*>(init)) {
+                return staticEvalulate(copy->expr());
+            }
+        }
+        assert(false && "Should not reach here");
     }
 
     void Compiler::_processPotentialStackOperation(Instruction* instr) {
@@ -326,7 +366,14 @@ namespace Floral { namespace v2 {
 
     // MARK: Emit global constant
     void Compiler::emitGlobal(GlobalDeclaration *gbl) {
-        
+        Initializer* init = gbl->initializer();
+        if (init->type == Initializer::zero) {
+            emit(new ZeroData(gbl->name.contents, OPSIZE_FROM_NUM(gbl->type->alignment())), SectionType::bss);
+        } else if (auto direct = dynamic_cast<const DirectInitializer*>(init)) {
+            emit(new RawText(INDENT + prefixed(gbl->name.contents) + ": " + (direct->expr()->type->isCString() ? "db" : "dq ") + staticEvalulate(direct->expr())), SectionType::rodata);
+        } else if (auto copy = dynamic_cast<const CopyInitializer*>(init)) {
+            emit(new RawText(INDENT + prefixed(gbl->name.contents) + ": " + (copy->expr()->type->isCString() ? "db" : "dq ") + staticEvalulate(copy->expr())), SectionType::rodata);
+        }
     }
 
     // MARK: Emit forward-declared global constant

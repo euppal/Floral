@@ -1,3 +1,6 @@
+func hello();
+
 func main(): Int {
+    hello();
     return 0;
 }

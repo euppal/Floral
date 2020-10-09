@@ -9,11 +9,11 @@
 /* Begin PBXBuildFile section */
 		581C5F9C24FC17BC00DEE9F6 /* CommandParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5F9A24FC17BC00DEE9F6 /* CommandParser.cpp */; };
 		581C5FC924FEBE7B00DEE9F6 /* Frame.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FC724FEBE7B00DEE9F6 /* Frame.cpp */; };
-		581C5FCB250007B900DEE9F6 /* test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FCA250007B900DEE9F6 /* test.cpp */; };
+		581C5FCB250007B900DEE9F6 /* driver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FCA250007B900DEE9F6 /* driver.cpp */; };
 		581C5FCE2501654900DEE9F6 /* Instruction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FCC2501654900DEE9F6 /* Instruction.cpp */; };
+		5855A60F2530C96800704F70 /* helper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5855A60E2530C96800704F70 /* helper.cpp */; };
 		585FDC292523A5A600135392 /* Colors.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 585FDC282523A48300135392 /* Colors.cpp */; };
 		58626E3024C7630400564C58 /* SPA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58626E2E24C7630400564C58 /* SPA.cpp */; };
-		58789949252E119E000297CF /* hello.c in Sources */ = {isa = PBXBuildFile; fileRef = 58789948252E119E000297CF /* hello.c */; };
 		587D6CE9250969B900CD0E40 /* Compiler v2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 587D6CE8250969B900CD0E40 /* Compiler v2.cpp */; };
 		5894DFA024BE3EEB000C8E05 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8824BE3EDB000C8E05 /* main.cpp */; };
 		5894DFA124BE3EF8000C8E05 /* Sources.hpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8724BE3EDB000C8E05 /* Sources.hpp */; };
@@ -70,16 +70,16 @@
 		581C5FAE24FC1C5E00DEE9F6 /* Start.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Start.md; sourceTree = "<group>"; };
 		581C5FC724FEBE7B00DEE9F6 /* Frame.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Frame.cpp; sourceTree = "<group>"; };
 		581C5FC824FEBE7B00DEE9F6 /* Frame.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Frame.hpp; sourceTree = "<group>"; };
-		581C5FCA250007B900DEE9F6 /* test.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test.cpp; sourceTree = "<group>"; };
+		581C5FCA250007B900DEE9F6 /* driver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = driver.cpp; sourceTree = "<group>"; };
 		581C5FCC2501654900DEE9F6 /* Instruction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Instruction.cpp; sourceTree = "<group>"; };
 		581C5FCD2501654900DEE9F6 /* Instruction.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Instruction.hpp; sourceTree = "<group>"; };
+		5855A60E2530C96800704F70 /* helper.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = helper.cpp; sourceTree = "<group>"; };
 		585FDC272523A48300135392 /* Colors.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Colors.hpp; sourceTree = "<group>"; };
 		585FDC282523A48300135392 /* Colors.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Colors.cpp; sourceTree = "<group>"; };
-		5860F5E524FB1AE700E3FE47 /* test.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = test.hpp; sourceTree = "<group>"; };
+		5860F5E524FB1AE700E3FE47 /* driver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = driver.hpp; sourceTree = "<group>"; };
 		58626E2E24C7630400564C58 /* SPA.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SPA.cpp; sourceTree = "<group>"; };
 		58626E2F24C7630400564C58 /* SPA.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SPA.hpp; sourceTree = "<group>"; };
-		58789948252E119E000297CF /* hello.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = hello.c; sourceTree = "<group>"; };
-		5878994A252E1A44000297CF /* test.fh */ = {isa = PBXFileReference; lastKnownFileType = text; path = test.fh; sourceTree = "<group>"; };
+		5878994A252E1A44000297CF /* hello.floral */ = {isa = PBXFileReference; lastKnownFileType = text; path = hello.floral; sourceTree = "<group>"; };
 		587D162524A9306100D20ED2 /* floralc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = floralc; sourceTree = BUILT_PRODUCTS_DIR; };
 		587D6CE8250969B900CD0E40 /* Compiler v2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "Compiler v2.cpp"; sourceTree = "<group>"; };
 		5894DF8424BE3EDB000C8E05 /* config.floralattr */ = {isa = PBXFileReference; lastKnownFileType = text; path = config.floralattr; sourceTree = "<group>"; };
@@ -170,8 +170,9 @@
 		5894DF8224BE3EDB000C8E05 /* floral */ = {
 			isa = PBXGroup;
 			children = (
-				5860F5E524FB1AE700E3FE47 /* test.hpp */,
-				581C5FCA250007B900DEE9F6 /* test.cpp */,
+				5860F5E524FB1AE700E3FE47 /* driver.hpp */,
+				581C5FCA250007B900DEE9F6 /* driver.cpp */,
+				5855A60E2530C96800704F70 /* helper.cpp */,
 				5894DF8824BE3EDB000C8E05 /* main.cpp */,
 				5894DF8724BE3EDB000C8E05 /* Sources.hpp */,
 				581C5F9D24FC1C5E00DEE9F6 /* docs */,
@@ -185,8 +186,7 @@
 			isa = PBXGroup;
 			children = (
 				5894DF8624BE3EDB000C8E05 /* main.floral */,
-				5878994A252E1A44000297CF /* test.fh */,
-				58789948252E119E000297CF /* hello.c */,
+				5878994A252E1A44000297CF /* hello.floral */,
 				5894DF8424BE3EDB000C8E05 /* config.floralattr */,
 			);
 			path = proj;
@@ -295,14 +295,14 @@
 				5894DFA424BE3F01000C8E05 /* Compiler.cpp in Sources */,
 				5894DFA524BE3F01000C8E05 /* Type.hpp in Sources */,
 				5894DFA624BE3F01000C8E05 /* Token.hpp in Sources */,
-				581C5FCB250007B900DEE9F6 /* test.cpp in Sources */,
+				5855A60F2530C96800704F70 /* helper.cpp in Sources */,
+				581C5FCB250007B900DEE9F6 /* driver.cpp in Sources */,
 				5894DFA724BE3F01000C8E05 /* Error.cpp in Sources */,
 				5894DFA824BE3F01000C8E05 /* Scope.hpp in Sources */,
 				585FDC292523A5A600135392 /* Colors.cpp in Sources */,
 				5894DFA924BE3F01000C8E05 /* Operator.cpp in Sources */,
 				5894DFAA24BE3F01000C8E05 /* File IO.hpp in Sources */,
 				5894DFAB24BE3F01000C8E05 /* Lexer.cpp in Sources */,
-				58789949252E119E000297CF /* hello.c in Sources */,
 				581C5FCE2501654900DEE9F6 /* Instruction.cpp in Sources */,
 				5894DFAC24BE3F01000C8E05 /* Error.hpp in Sources */,
 				5894DFAD24BE3F01000C8E05 /* Scope.cpp in Sources */,

@@ -117,6 +117,9 @@ namespace Floral {
     bool Type::isPointer() const {
         return _ptrType;
     }
+    bool Type::isCString() const {
+        return _ptrType && _ptrType->isChar();
+    }
     bool Type::isFunction() const {
         return _isFunctionType;
     }

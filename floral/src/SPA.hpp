@@ -60,6 +60,8 @@ namespace Floral {
         GlobalDeclaration* lookupGlobal(std::string symbol);
         GlobalForwardDeclaration* lookupGlobalDecl(std::string symbol);
         Function* lookupFunc(std::string symbol);
+        
+        void reset(void);
     };
 }
 

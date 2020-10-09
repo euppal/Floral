@@ -5,8 +5,8 @@ Floral contains a limited preprocessor for utility. Preprocessing directives beg
 
 The following is a list of every such directive:
 - `#line`: Replaced by a decimal integer, the line number.
-- `#column`: Replaced by a decimal integer, the column number.
-- `#file`: Replaced by a string literal, the file path.
+- `#column`: Replaced by a decimal integer, the column number (TODO).
+- `#file`: Replaced by a string literal, the file path (TODO).
 - `#include`: Includes the contents of the specified file in the current file.
 - `#define`: Defines a macro without arguments.
 - `#undef`: Undefines a macro.

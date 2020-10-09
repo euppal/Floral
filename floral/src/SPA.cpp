@@ -454,8 +454,46 @@ namespace Floral {
                 gbl->info.isStaticEval = true;
             } else if (auto direct = dynamic_cast<const DirectInitializer*>(initializer)) {
                 gbl->info.isStaticEval = isStaticEval(direct->expr());
+                auto initexpr = direct->expr();
+                if (analyze(initexpr) != 0) return 1;
+                Type* declaredType { gbl->type };
+                if (!declaredType->isIncomplete()) {
+                    if (!(*declaredType == *initexpr->type)) {
+                        if (declaredType->isUInt() && initexpr->type->isInt()) {
+                            
+                        } else {
+                            report(
+                                   Error::typeDomain,
+                                   "Expression resolves to type different from type declared in global declaration",
+                                   gbl->_loc,
+                                   { initexpr->_loc.pos, 0 }
+                            );
+                        }
+                    }
+                } else {
+                    gbl->type = initexpr->type;
+                }
             } else if (auto copy = dynamic_cast<const CopyInitializer*>(initializer)) {
                 gbl->info.isStaticEval = isStaticEval(copy->expr());
+                auto initexpr = copy->expr();
+                if (analyze(initexpr) != 0) return 1;
+                Type* declaredType { gbl->type };
+                if (!declaredType->isIncomplete()) {
+                    if (!(*declaredType == *initexpr->type)) {
+                        if (declaredType->isUInt() && initexpr->type->isInt()) {
+                            
+                        } else {
+                            report(
+                                   Error::typeDomain,
+                                   "Expression resolves to type different from type declared in global declaration",
+                                   gbl->_loc,
+                                   { initexpr->_loc.pos, 0 }
+                            );
+                        }
+                    }
+                } else {
+                    gbl->type = initexpr->type;
+                }
             }
         } else if (auto fgbl = dynamic_cast<GlobalForwardDeclaration*>(decl)) {
             if (globalSymbolTable[fgbl->name().contents]) {
@@ -593,14 +631,17 @@ namespace Floral {
             // MARK: BADDDDDD ONLY LOOKS IN THIS SCOPE ADD FUNCTION THAT LOOKS IN ALLLLLLL!!!!!!
             Type* type = localLookupType(symbol->value().contents);
             if (!type) {
-                report(
-                       Error::resolutionDomain,
-                       "The symbol '" + symbol->value().contents + "' could not be found",
-                       symbol->_loc,
-                       { symbol->_loc.pos, 0 },
-                       "Try declaring or defining the symbol with a global, let or var to silence this error"
-                    );
-                return nullptr;
+                type = lookupGlobal(symbol->value().contents)->type;
+                if (!type) {
+                    report(
+                           Error::resolutionDomain,
+                           "The symbol '" + symbol->value().contents + "' could not be found",
+                           symbol->_loc,
+                           { symbol->_loc.pos, 0 },
+                           "Try declaring or defining the symbol with a global, let or var to silence this error"
+                        );
+                    return nullptr;
+                }
             }
             return type;
         } else if (Call* call = dynamic_cast<Call*>(expr)) {
@@ -647,10 +688,13 @@ namespace Floral {
     }
 
     bool StaticAnalyzer::isStaticEval(Expression* expr) {
-        if (!expr) return true;
+        if (!expr) {
+            return true;
+        }
         if (BinaryExpression* binaryExpression = dynamic_cast<BinaryExpression*>(expr)) {
             binaryExpression->info.isStaticEval = isStaticEval(binaryExpression->left()) && isStaticEval(binaryExpression->right());
         } else if (auto literal = dynamic_cast<Literal*>(expr)) {
+            expr->info.isStaticEval = true;
             literal->info.isStaticEval = true;
             return true;
         } else if (auto call = dynamic_cast<Call*>(expr)) {
@@ -662,9 +706,17 @@ namespace Floral {
             return true;
         } else if (auto symbol = dynamic_cast<SymbolExpression*>(expr)) {
             const std::string name { symbol->value().contents };
-            if (auto gbl = globalSymbolTable[name]) return gbl->info.isStaticEval;
-            if (auto fgbl = globalForwardDeclSymbolTable[name]) return true;
-            if (auto initexpr = scope().lookup(name)) return isStaticEval(initexpr);
+            if (auto gbl = globalSymbolTable[name]) {
+                symbol->info.isStaticEval = gbl->info.isStaticEval;
+                return symbol->info.isStaticEval;
+            }
+            if (auto fgbl = globalForwardDeclSymbolTable[name]) {
+                fgbl->info.isStaticEval = true;
+                return true;
+            }
+            if (auto initexpr = scope().lookup(name)) {
+                return isStaticEval(initexpr);
+            }
             return false;
         }
         return false;
@@ -674,5 +726,16 @@ namespace Floral {
     }
     GlobalForwardDeclaration* StaticAnalyzer::lookupGlobalDecl(std::string symbol) {
         return globalForwardDeclSymbolTable[symbol];
+    }
+
+    void StaticAnalyzer::reset() {
+        _errors.clear();
+        _warnings.clear();
+        globalSymbolTable.clear();
+        globalForwardDeclSymbolTable.clear();
+        functionSymbolTable.clear();
+        functionForwardDeclSymbolTable.clear();
+        scopes.clear();
+        _typeTrace.clear();
     }
 }

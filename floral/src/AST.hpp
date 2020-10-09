@@ -288,7 +288,7 @@ namespace Floral {
         
         virtual void print() const override;
         bool isZeroInitialized() const;
-        const Initializer* initializer() const;
+        Initializer* initializer() const;
     };
     class LetStatement: public Statement {
         Token _name;

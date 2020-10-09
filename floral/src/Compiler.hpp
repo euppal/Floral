@@ -100,7 +100,7 @@ namespace Floral {
             void emit(Instruction* instr, SectionType section);
             
             void reset();
-            const std::pair<std::string, bool> staticEvalulate(Expression* staticEvalExpr, bool wantsFinalSymbol = false);
+            std::string staticEvalulate(Expression* staticEvalExpr);
             
             
             // Function related
@@ -167,7 +167,7 @@ namespace Floral {
 
             int optimization;
             int usingCFunctions;
-            int notUsingStdlibHeader;
+            int notUsingStdlib;
             
             void setOutputDestination(const std::string &dest);
             void showTypeTrace(bool show);

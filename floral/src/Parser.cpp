@@ -723,8 +723,8 @@ namespace Floral {
                     if (match(TokenType::semicolon, " at end of using directive").isInvalid()) {
                         synchronize();
                     } else {
-                        if (id.contents == "syscalls") {
-                            _use.push_back(Use::syscalls);
+                        if (id.contents == "stdlib") {
+                            _use.push_back(Use::stdlib);
                         } else if (id.contents == "C") {
                             _use.push_back(Use::C);
                         }

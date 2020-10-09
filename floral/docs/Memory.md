@@ -16,7 +16,7 @@ In basic Floral programs, the stack will probably be the most used area of alloc
 struct Complex {
     Complex(r: Float, i: Float): real = r, imag = i {}
 
-exposed get:
+public get:
     var real, imag: Float;
 };
 
@@ -30,7 +30,7 @@ func main(): Int {
 
 Allocating on the stack is a very cheap operation, involving one line of assembly code: `sub rsp, N` where `N` is the number of bytes you want to allocate.
 
-In the example above, the assembly code generated would allocate enough space to store all the variables/constants. In this case, `sizeof(Int) + sizeof(Char) + sizeof(Complex) + sizeof(&Int) == 41`. However - `alignof(Char) == 4` so you would expect `sub rsp, 44` and the corresponding `add rsp, 44` at the end of the frame.
+In the example above, the assembly code generated would allocate enough space to store all the variables/constants. In this case, `sizeof(Int) + sizeof(Char) + sizeof(Complex) + sizeof(&Int) == 25`. However all their alignments are 8 so you would expect `sub rsp, 32` (32 is the next multiple of 16).
 
 #### Dynamic Allocation
 

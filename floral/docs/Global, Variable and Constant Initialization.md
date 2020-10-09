@@ -1,7 +1,6 @@
 #  Variables, Constants and Initialization
-# WARNING: SPECIFICATION CHANGED
 
-The chief format for storing, passing around and operating on data involves the declaration of variables or constants and then their initialization. Here is an example Floral program:
+The chief format for storing, passing around and operating on data involves the allocation of variables or constants and then their initialization. Here is an example Floral program:
 
 ```
 func main(): Int {
@@ -14,7 +13,7 @@ func main(): Int {
 
 In this example, the variable `x` is declared and initialized to the integer `1`, the variable `y` is declared and initialized to the integer `2` and `z` is declared and initialized to the sum of `x` and `y` (`1+2`). 
 
-Variables, however, are just one way of operating on data. Floral provides three: global constants, local constants and local variables. In the example above, 'x', 'y' and 'z' are all local variables due to them being declared by the keyword `var`. Global constants are declared with the keyword `global` and local constants are declared with the keyword `let`. 
+Variables, however, are just one way of storing and operating on data. Floral provides three: global constants, local constants and local variables. In the example above, `x`, `y` and `z` are all local variables due to them being declared by the keyword `var`. Global constants are declared with the keyword `global` and local constants are declared with the keyword `let`. 
 
 Global constants and string literals do not exist within the process's text section. Rather, depending on the type of initialization, they exist within read-only data or zero-initialized data sections.
 
@@ -39,19 +38,27 @@ global z: Int = 2;
 ```
 ...this gets compiled to:
 ```nasm
-section .text
-global _main
-_main:
-  mov rax, 0x2000001
-  xor rdi, rdi
-  syscall
+section .bss
+  _floralid_x: resq
 
 section .rodata
-  y: dq 1
-  z: dq 2
-
-section .bss
-  x: resq 1
+  _floralid_y: dq 1
+  _floralid_z: dq 2
 ```
 
 Since `x` was zero-initialized to `Int`, 64-bits of zeros are reserved (see `x: resq 1` which reserves one quad-word, or four 16-bit words). Both `y` and `z` are direct-initialized in `section .rodata` because even though `global z` was declared with the copy-initialization syntax, global constants cannot be modified after their definition, so the compiler simply direct-initializes them.
+
+Global constants are also statically evaluated. This is a requirement: non compile-time expressions in a global constant initializer are a compile-time error.
+
+```
+global x = 1;
+global y = 2;
+global z = x + y;
+```
+...assembly output:
+```nasm
+section .rodata
+_floralid_x: dq 1
+_floralid_y: dq 2
+_floralid_z: dq 3
+```

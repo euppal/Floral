@@ -215,7 +215,7 @@ namespace Floral {
     bool GlobalDeclaration::isZeroInitialized() const {
         return init->type == Initializer::zero;
     }
-    const Initializer* GlobalDeclaration::initializer() const {
+    Initializer* GlobalDeclaration::initializer() const {
         return init;
     }
     LetStatement::LetStatement(TextRegion loc, const Token& name, Type* type, Initializer* init): Statement(loc), _name(name), _type(type), init(init) {}
