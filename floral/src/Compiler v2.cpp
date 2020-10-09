@@ -170,6 +170,21 @@ namespace Floral { namespace v2 {
 
     // MARK: Assignment statement
     void Compiler::emitAssignmentStatement(Assignment* assignStm) {
+        if (auto layer1 = dynamic_cast<BinaryExpression*>(assignStm->lval())) {
+            if (layer1->op() && layer1->op()->tkntype() == TokenType::multiply && !layer1->left()) {
+                PointerAssignment ptrAssign { layer1->right()->_loc, layer1->right(), assignStm->rval() };
+                emitPointerAssignmentStatement(&ptrAssign);
+                ptrAssign.makenull();
+                return;
+            } else if (layer1->op() && layer1->op()->tkntype() == TokenType::leftBracket) {
+                const Token addOp { {layer1->op()->_loc.pos, layer1->op()->_loc.startLine}, TokenType::plus, "+" };
+                Expression* pointer = new BinaryExpression(layer1->_loc, layer1->left(), new OperatorComponentExpression(addOp), layer1->right());
+                PointerAssignment ptrAssign { assignStm->_loc, pointer, assignStm->rval() };
+                emitPointerAssignmentStatement(&ptrAssign);
+                ptrAssign.makenull();
+                return;
+            }
+        }
         const Token referenceOp { {assignStm->lval()->_loc.pos, assignStm->lval()->_loc.startLine}, TokenType::andOp, "&" };
         Expression* pointer = new BinaryExpression(assignStm->lval()->_loc, nullptr, new OperatorComponentExpression(referenceOp), assignStm->lval());
         PointerAssignment ptrAssign { assignStm->_loc, pointer, assignStm->rval() };
@@ -358,6 +373,9 @@ namespace Floral { namespace v2 {
                     ),
                     SectionType::text
                 );
+                if (IS_REG(result)) {
+                    returnRegister(static_cast<Register>(result.reg));
+                }
                 currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), size, name);
                 break;
             }
@@ -375,6 +393,9 @@ namespace Floral { namespace v2 {
                     ),
                     SectionType::text
                 );
+                if (IS_REG(result)) {
+                    returnRegister(static_cast<Register>(result.reg));
+                }
                 currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), size, name);
                 break;
             }
@@ -415,6 +436,9 @@ namespace Floral { namespace v2 {
                     ),
                     SectionType::text
                 );
+                if (IS_REG(result)) {
+                    returnRegister(static_cast<Register>(result.reg));
+                }
                 currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), size, name);
                 break;
             }
@@ -432,6 +456,9 @@ namespace Floral { namespace v2 {
                     ),
                     SectionType::text
                 );
+                if (IS_REG(result)) {
+                    returnRegister(static_cast<Register>(result.reg));
+                }
                 currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), size, name);
                 break;
             }
@@ -510,7 +537,7 @@ namespace Floral { namespace v2 {
                             stackArgs.push_back(param);
                         } else {
                             const Location dest = RBPOffsetLocation(currentFrame().nextOffset());
-                            emit(new MoveOperation(dest, RegisterLocation(integerRegs[integers++]), SizeType::qword, "load register parameter to local var"), SectionType::text);
+                            emit(new MoveOperation(dest, RegisterLocation(integerRegs[integers++]), SizeType::qword, "@ load register parameter to local var"), SectionType::text);
                             currentFrame().addData(dest, param.type->alignment(), param.name.contents);
                         }
                     }
@@ -630,6 +657,22 @@ namespace Floral { namespace v2 {
     //
     //                    return resultr;
                     }
+                    case TokenType::leftBracket: {
+                        const Location pointer = emitExpression(left);
+                        const Location index = emitExpression(right);
+                        
+                        if (index.isLiteral && IS_REG(pointer)) {
+                            const auto size = left->type->_ptrType->size();
+                            const auto opsize = OPSIZE_FROM_NUM(size);
+                            const Register pointerReg = static_cast<Register>(pointer.reg);
+                            const int resultint = currentFrame().avaliableScratch();
+                            const Register resultreg = static_cast<Register>(resultint);
+                            emit(new XorOperation(RegisterLocation(resultreg), RegisterLocation(resultreg), "zero out result"), SectionType::text);
+                            emit(new MoveOperation(RegisterLocation(static_cast<Register>(resultint + REG_IMPL_OFFSET_FOR_SIZE(opsize))), ValueAtOffsetRegisterLocation(pointerReg, index.value.s * size), opsize, "subscript into result"), SectionType::text);
+                            returnRegister(pointerReg);
+                            return RegisterLocation(resultreg);
+                        }
+                    }
                     case TokenType::equal: {
                         const Location resultloc = emitExpression(left);
                         const Location rhsloc = emitExpression(right);
@@ -727,7 +770,7 @@ namespace Floral { namespace v2 {
             }
             else if (auto literal = dynamic_cast<Literal*>(expr)) {
                 switch (literal->type()) {
-                    case Literal::LType::simpleString: {
+                    case Literal::LType::cString: {
                         static long strlitCount = 0;
                         const std::string lbl {"#str_literal_" + std::to_string(strlitCount++)}; // create the label
                         std::string stringLiteral {literal->value().contents};
@@ -743,12 +786,14 @@ namespace Floral { namespace v2 {
                     }
                     case Literal::LType::decimalInteger:
                     case Literal::LType::decimalByte:
+                    case Literal::LType::decimalWideChar:
                     case Literal::LType::decimalShort:
                     case Literal::LType::decimalInt32: {
                         return NumLL(false, SU(atoll(literal->value().contents.c_str()))); // simply return the integer value
                     }
                     case Literal::LType::decimalUInteger:
                     case Literal::LType::decimalUByte:
+                    case Literal::LType::decimalWideUChar:
                     case Literal::LType::decimalUShort:
                     case Literal::LType::decimalUInt32: {
                         return NumLL(true, SU((uint64_t)strtoul(literal->value().contents.c_str(), NULL, 10))); // simply return the integer value
@@ -972,19 +1017,27 @@ namespace Floral { namespace v2 {
         // MARK: Emit entry point for execution
         void Compiler::generateEntryPoint(Function* main) {
             emit(new RawText(
-                "\nglobal _main ; _main is the entry point in macOS nasm\n" // make entry point visible to linker
+                "\nextern _init_floral\n"
+                "global _main ; _main is the entry point in macOS nasm\n" // make entry point visible to linker
                 "_main:" // _main is the entry point in macOS nasm
             ), SectionType::text);
-            emit(new SubOperation(RegisterLocation(Register::rsp), NumLL(false, SU(8LLU)), "so stack is aligned upon call"), SectionType::text); // align stack to 16 bytes
-            emit(new CallOperation(main->name().contents, "call the floral main function"), SectionType::text); // call the Floral main function
-            emit(new AddOperation(RegisterLocation(Register::rsp), NumLL(false, SU(8LLU)), "restore stack pointer"), SectionType::text); // restore stack pointer
+            
+            const std::string nameOfMain = analyzer.strFromFunctionSignature({main->name().contents, main->parameters()});
+            if (!(nameOfMain == "main" || nameOfMain == "main_i32_u")) {
+                report(Error::resolutionDomain, "Cannot find function main(Int32, &&Char)", main->_loc, { main->_name.pos(), main->_name.contents.size() });
+            }
+            
+            emit(new SubOperation(RegisterLocation(Register::rsp), NumLL(false, SU(8LLU)), "@ so stack is aligned upon calls"), SectionType::text); // align stack to 16 bytes
+            emit(new RawText(INDENT "call _init_floral"), SectionType::text);
+            emit(new CallOperation(nameOfMain, "@ call the floral main function"), SectionType::text); // call the Floral main function
+            emit(new AddOperation(RegisterLocation(Register::rsp), NumLL(false, SU(8LLU)), "@ restore stack pointer"), SectionType::text); // restore stack pointer
             emit(
-                new MoveOperation(RegisterLocation(Register::rdi), RETURN_VALUE_LOC, SizeType::qword, "exit code"),
+                new MoveOperation(RegisterLocation(Register::rdi), RETURN_VALUE_LOC, SizeType::qword, "@ exit code"),
                 SectionType::text
             ); // store return value (rax) as exit code in rdi (first syscall argment)
             emit(
                 //new MoveOperation(RegisterLocation(Register::rax), NumLL(false, SU(0x2000001ULL)), SizeType::qword, "0x200001 = exit"),
-                new RawText("  mov eax, 0x2000001 ; exit syscall"),
+                new RawText("  mov eax, 0x2000001 ; @ exit syscall"),
                 SectionType::text
             ); // set rax to indicate the exit syscall
             emit(new Syscall(), SectionType::text); // perform syscall
@@ -1031,6 +1084,9 @@ namespace Floral { namespace v2 {
                 Instruction* b {textSection.instructions[i + 1]};
                 if (auto amov = dynamic_cast<MoveOperation*>(a)) {
                     if (auto bmov = dynamic_cast<MoveOperation*>(b)) {
+                        if (NO_OPTM(amov) || NO_OPTM(bmov)) {
+                            continue;
+                        }
                         if (amov->dest == bmov->src && IS_REG(amov->dest)) {
                             amov->dest = bmov->dest;
                             CAT_COMMENTS(amov, bmov);
@@ -1283,7 +1339,7 @@ namespace Floral { namespace v2 {
         reset(); // in case the function is called more than once
         
         analyzer.analyze(file); // perform static analysis to gain control flow and type information
-        analyzer.dumpTypeTrace();
+        if (_showTypeTrace) analyzer.dumpTypeTrace();
         
         ColoredStream out;
         if (analyzer.hasWarnings() || analyzer.hasErrors()) {
@@ -1354,25 +1410,48 @@ namespace Floral { namespace v2 {
         _path = path;
     }
 
+    void Compiler::showTypeTrace(bool show) {
+        _showTypeTrace = show;
+    }
+
     void Compiler::_strprocess(std::string& str) {
         long long idx = str.size();
         while (idx > 0) {
             --idx;
             if (str[idx - 1] == '\\') {
                 switch (str[idx]) {
-                case '\"': {
-                    str.erase(str.begin() + idx - 1, str.begin() + idx + 1);
-                    const std::string insrt {"`, 0x22, `"};
-                    str.insert(idx - 1, insrt);
-                    idx -= 2;
-                    break;
-                }
-                default:
-                    break;
+                    case 't': {
+                        str.erase(str.begin() + idx - 1, str.begin() + idx + 1);
+                        const std::string insrt {"`, 0x9, `"};
+                        str.insert(idx - 1, insrt);
+                        idx -= 2;
+                        break;
+                    }
+                    case 'r': {
+                        str.erase(str.begin() + idx - 1, str.begin() + idx + 1);
+                        const std::string insrt {"`, 0xD, `"};
+                        str.insert(idx - 1, insrt);
+                        idx -= 2;
+                        break;
+                    }
+                    case 'e': {
+                        str.erase(str.begin() + idx - 1, str.begin() + idx + 1);
+                        const std::string insrt {"`, 0x1B, `"};
+                        str.insert(idx - 1, insrt);
+                        idx -= 2;
+                        break;
+                    }
+                    case '\"': {
+                        str.erase(str.begin() + idx - 1, str.begin() + idx + 1);
+                        const std::string insrt {"`, 0x22, `"};
+                        str.insert(idx - 1, insrt);
+                        idx -= 2;
+                        break;
+                    }
+                    default:
+                        break;
                 }
             }
         }
-        std::cout << str;
     }
-}}//                    str.insert(idx - 1, "`, 34, `");
-
+}}

@@ -1,4 +1,5 @@
 # Floral Preprocessor
+# WARNING: SPECIFICATION CHANGED
 
 Floral contains a limited preprocessor for utility. Preprocessing directives begin with `#`.
 

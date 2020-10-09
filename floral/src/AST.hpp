@@ -217,9 +217,10 @@ namespace Floral {
             boolean,
             decimalInteger, decimalUInteger,
             decimalByte, decimalUByte,
+            decimalWideChar, decimalWideUChar,
             decimalShort, decimalUShort,
             decimalInt32, decimalUInt32,
-            hexadecimalInteger, floatingPointNumber, simpleString
+            hexadecimalInteger, floatingPointNumber, cString
         };
         
     private:
@@ -403,6 +404,7 @@ namespace Floral {
         virtual void print() const override;
         void insert(Node* node);
         const std::vector<Node*>& body() const;
+        size_t size() const;
     };
     class IfStatement: public Statement {
         Expression* _condition;

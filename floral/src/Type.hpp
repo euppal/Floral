@@ -62,6 +62,8 @@ namespace Floral {
         bool isUShort(void) const;
         bool isChar(void) const;
         bool isUChar(void) const;
+        bool isWideChar(void) const;
+        bool isWideUChar(void) const;
         bool isVoid(void) const;
         
         bool isToken(void) const;

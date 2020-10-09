@@ -1,6 +1,10 @@
-func print(const &Char);
+func fib(x: Int): Int {
+    if (1 < x) {
+        return fib(x-1) + fib(x-2);
+    }
+    return x;
+}
 
 func main(): Int {
-    print("Yay, \"quotes!\"\n");
-    return 0;
+    return fib(5);
 }

@@ -11,6 +11,7 @@
 #include "FilePath.hpp"
 #include <vector>
 #include <iostream>
+#include "Colors.hpp"
 
 namespace Floral {
     TextRegion::TextRegion(const Token& value) {
@@ -71,7 +72,8 @@ namespace Floral {
         return _main;
     }
     void File::dump() const {
-        std::cout << "File Constituents:\n";
+        ColoredStream colout;
+        colout << Color::reset << Color::cyan << "File Constituents:\n" << Color::reset;
         for (auto node: _nodes) {
             std::cout << "- ";
             node->print();
@@ -382,6 +384,19 @@ namespace Floral {
     const std::vector<Node*>& Block::body() const {
         return _body;
     }
+    size_t Block::size() const {
+        size_t acc {};
+        for (auto node: _body) {
+            if (auto let = dynamic_cast<LetStatement*>(node)) {
+                acc += let->type()->alignment();
+            } else if (auto var = dynamic_cast<VarStatement*>(node)) {
+                acc += var->type()->alignment();
+            } else if (auto block = dynamic_cast<Block*>(node)) {
+                acc += block->size();
+            }
+        }
+        return acc;
+    }
     WhileStatement::WhileStatement(TextRegion loc, Expression* condition, Block* body): Statement(loc), _condition(condition), _body(body) {}
     WhileStatement::~WhileStatement() {
         delete _condition;
@@ -470,7 +485,7 @@ namespace Floral {
     const std::string Literal::prettystr() const {
         if (_type == LType::hexadecimalInteger) {
             return "0x" + _value.contents;
-        } else if (_type == LType::simpleString) {
+        } else if (_type == LType::cString) {
             return '\"' + _value.contents + '\"';
         }
         else return _value.contents;
@@ -478,7 +493,7 @@ namespace Floral {
     const std::string Literal::description() const {
         if (_type == LType::hexadecimalInteger) {
             return "0x" + _value.contents;
-        } else if (_type == LType::simpleString) {
+        } else if (_type == LType::cString) {
             return TYPE_STRING_INDICATOR;
         } else if (_type == LType::boolean) {
             return _value.type == TokenType::boolTrue ? "1" : "0";
@@ -513,6 +528,7 @@ namespace Floral {
             case TokenType::minus: return mode != infix ? 60 : 40;
             case TokenType::multiply: if (mode == prefix) return 70;
             case TokenType::divide: return 50;
+            case TokenType::leftBracket:
             case TokenType::inc:
             case TokenType::dec: return 60;
             default:

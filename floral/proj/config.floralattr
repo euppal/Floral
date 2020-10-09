@@ -1,5 +1,5 @@
 _["Floral project attributes file"]
 
-Main["main.floral"]
-Link{"std.o", "cbridge.o"}
+In{"main.floral"}
+Out["main"]
 Flags{"-O"}

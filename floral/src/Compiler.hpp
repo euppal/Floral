@@ -155,6 +155,7 @@ namespace Floral {
             
             // Other
             std::string _path;
+            bool _showTypeTrace = false;
             bool _wasRegisterParameter = false;
             void _strprocess(std::string& str);
             
@@ -169,6 +170,7 @@ namespace Floral {
             int notUsingStdlibHeader;
             
             void setOutputDestination(const std::string &dest);
+            void showTypeTrace(bool show);
             bool hasErrors() const;
             const std::vector<Error>& errors() const;
             bool hasWarnings() const;

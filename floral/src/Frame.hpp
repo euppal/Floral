@@ -24,6 +24,8 @@
 #include <string>
 #include "Instruction.hpp"
 
+#define REG_IMPL_OFFSET_FOR_SIZE(opsize) ((opsize) == SizeType::qword ? 0 : ((opsize) == SizeType::dword ? 8 : ((opsize) == SizeType::word ? 40 : 32)))
+
 namespace Floral {
     struct Location;
     enum class Register {
@@ -31,14 +33,16 @@ namespace Floral {
         eax, ebx, ecx, edx, edi, esi, ebp, esp,
         r8, r9, r10, r11, r12, r13, r14, r15,
         xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7,
-        al
+        al, bl, cl, dl, plc1, plc2, plc3, plc4,
+        ax, bx, cx, dx, si, di, bp, sp
     };
     const std::string registerNames[] {
         "rax", "rbx", "rcx", "rdx", "rdi", "rsi", "rbp", "rsp",
         "eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp",
         "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
         "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
-        "al"
+        "al", "bl", "cl", "dl", "_", "_", "_", "_",
+        "ax", "bx", "cx", "dx", "si", "di", "bp", "sp"
     };
     bool isScratch(Register reg);
     struct Variable {

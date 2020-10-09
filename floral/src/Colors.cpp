@@ -72,4 +72,3 @@ ColoredStream& operator <<(ColoredStream& stream, char c) {
     }
     return stream;
 }
-        

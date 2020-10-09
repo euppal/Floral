@@ -13,6 +13,7 @@
 		581C5FCE2501654900DEE9F6 /* Instruction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FCC2501654900DEE9F6 /* Instruction.cpp */; };
 		585FDC292523A5A600135392 /* Colors.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 585FDC282523A48300135392 /* Colors.cpp */; };
 		58626E3024C7630400564C58 /* SPA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58626E2E24C7630400564C58 /* SPA.cpp */; };
+		58789949252E119E000297CF /* hello.c in Sources */ = {isa = PBXBuildFile; fileRef = 58789948252E119E000297CF /* hello.c */; };
 		587D6CE9250969B900CD0E40 /* Compiler v2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 587D6CE8250969B900CD0E40 /* Compiler v2.cpp */; };
 		5894DFA024BE3EEB000C8E05 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8824BE3EDB000C8E05 /* main.cpp */; };
 		5894DFA124BE3EF8000C8E05 /* Sources.hpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8724BE3EDB000C8E05 /* Sources.hpp */; };
@@ -55,9 +56,6 @@
 /* Begin PBXFileReference section */
 		581C5F9A24FC17BC00DEE9F6 /* CommandParser.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CommandParser.cpp; sourceTree = "<group>"; };
 		581C5F9B24FC17BC00DEE9F6 /* CommandParser.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = CommandParser.hpp; sourceTree = "<group>"; };
-		581C5F9F24FC1C5E00DEE9F6 /* Built-in Types.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "Built-in Types.pdf"; sourceTree = "<group>"; };
-		581C5FA024FC1C5E00DEE9F6 /* The Using Directive.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "The Using Directive.pdf"; sourceTree = "<group>"; };
-		581C5FA124FC1C5E00DEE9F6 /* Memory.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Memory.pdf; sourceTree = "<group>"; };
 		581C5FA224FC1C5E00DEE9F6 /* Structs.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Structs.md; sourceTree = "<group>"; };
 		581C5FA324FC1C5E00DEE9F6 /* Built-in Types.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Built-in Types.md"; sourceTree = "<group>"; };
 		581C5FA424FC1C5E00DEE9F6 /* Syntax.bnf */ = {isa = PBXFileReference; lastKnownFileType = text; path = Syntax.bnf; sourceTree = "<group>"; };
@@ -67,7 +65,6 @@
 		581C5FA824FC1C5E00DEE9F6 /* The Floral Compiler.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "The Floral Compiler.md"; sourceTree = "<group>"; };
 		581C5FA924FC1C5E00DEE9F6 /* Floral Preprocessor.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Floral Preprocessor.md"; sourceTree = "<group>"; };
 		581C5FAA24FC1C5E00DEE9F6 /* Memory.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Memory.md; sourceTree = "<group>"; };
-		581C5FAB24FC1C5E00DEE9F6 /* Test.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Test.txt; sourceTree = "<group>"; };
 		581C5FAC24FC1C5E00DEE9F6 /* Floral Standard Library.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Floral Standard Library.md"; sourceTree = "<group>"; };
 		581C5FAD24FC1C5E00DEE9F6 /* Floral Headers.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Floral Headers.md"; sourceTree = "<group>"; };
 		581C5FAE24FC1C5E00DEE9F6 /* Start.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Start.md; sourceTree = "<group>"; };
@@ -81,6 +78,8 @@
 		5860F5E524FB1AE700E3FE47 /* test.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = test.hpp; sourceTree = "<group>"; };
 		58626E2E24C7630400564C58 /* SPA.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SPA.cpp; sourceTree = "<group>"; };
 		58626E2F24C7630400564C58 /* SPA.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SPA.hpp; sourceTree = "<group>"; };
+		58789948252E119E000297CF /* hello.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = hello.c; sourceTree = "<group>"; };
+		5878994A252E1A44000297CF /* test.fh */ = {isa = PBXFileReference; lastKnownFileType = text; path = test.fh; sourceTree = "<group>"; };
 		587D162524A9306100D20ED2 /* floralc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = floralc; sourceTree = BUILT_PRODUCTS_DIR; };
 		587D6CE8250969B900CD0E40 /* Compiler v2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "Compiler v2.cpp"; sourceTree = "<group>"; };
 		5894DF8424BE3EDB000C8E05 /* config.floralattr */ = {isa = PBXFileReference; lastKnownFileType = text; path = config.floralattr; sourceTree = "<group>"; };
@@ -127,7 +126,6 @@
 		581C5F9D24FC1C5E00DEE9F6 /* docs */ = {
 			isa = PBXGroup;
 			children = (
-				581C5F9E24FC1C5E00DEE9F6 /* v1 */,
 				581C5FA224FC1C5E00DEE9F6 /* Structs.md */,
 				581C5FA324FC1C5E00DEE9F6 /* Built-in Types.md */,
 				581C5FA424FC1C5E00DEE9F6 /* Syntax.bnf */,
@@ -137,22 +135,11 @@
 				581C5FA824FC1C5E00DEE9F6 /* The Floral Compiler.md */,
 				581C5FA924FC1C5E00DEE9F6 /* Floral Preprocessor.md */,
 				581C5FAA24FC1C5E00DEE9F6 /* Memory.md */,
-				581C5FAB24FC1C5E00DEE9F6 /* Test.txt */,
 				581C5FAC24FC1C5E00DEE9F6 /* Floral Standard Library.md */,
 				581C5FAD24FC1C5E00DEE9F6 /* Floral Headers.md */,
 				581C5FAE24FC1C5E00DEE9F6 /* Start.md */,
 			);
 			path = docs;
-			sourceTree = "<group>";
-		};
-		581C5F9E24FC1C5E00DEE9F6 /* v1 */ = {
-			isa = PBXGroup;
-			children = (
-				581C5F9F24FC1C5E00DEE9F6 /* Built-in Types.pdf */,
-				581C5FA024FC1C5E00DEE9F6 /* The Using Directive.pdf */,
-				581C5FA124FC1C5E00DEE9F6 /* Memory.pdf */,
-			);
-			path = v1;
 			sourceTree = "<group>";
 		};
 		5832F39E2513A7E60010F880 /* depr */ = {
@@ -198,6 +185,8 @@
 			isa = PBXGroup;
 			children = (
 				5894DF8624BE3EDB000C8E05 /* main.floral */,
+				5878994A252E1A44000297CF /* test.fh */,
+				58789948252E119E000297CF /* hello.c */,
 				5894DF8424BE3EDB000C8E05 /* config.floralattr */,
 			);
 			path = proj;
@@ -313,6 +302,7 @@
 				5894DFA924BE3F01000C8E05 /* Operator.cpp in Sources */,
 				5894DFAA24BE3F01000C8E05 /* File IO.hpp in Sources */,
 				5894DFAB24BE3F01000C8E05 /* Lexer.cpp in Sources */,
+				58789949252E119E000297CF /* hello.c in Sources */,
 				581C5FCE2501654900DEE9F6 /* Instruction.cpp in Sources */,
 				5894DFAC24BE3F01000C8E05 /* Error.hpp in Sources */,
 				5894DFAD24BE3F01000C8E05 /* Scope.cpp in Sources */,

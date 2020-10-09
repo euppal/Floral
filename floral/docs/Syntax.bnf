@@ -1,3 +1,9 @@
+# !----- WARNING: SPECIFICATION CHANGED -----! #
+# !----- WARNING: SPECIFICATION CHANGED -----! #
+# !----- WARNING: SPECIFICATION CHANGED -----! #
+# !----- WARNING: SPECIFICATION CHANGED -----! #
+# !----- WARNING: SPECIFICATION CHANGED -----! #
+
 # Some notes on the syntax used. It does not deviate very much from standard BNF but there are some conteted styles:
 # ... (three periods) denotes "at least 1 of element"
 # - (a dash) denotes a range specifiying "any character inclusively within the two listed characters"

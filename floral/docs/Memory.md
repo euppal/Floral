@@ -53,11 +53,11 @@ func main(): Int {
 }
 ```
 
-This can be easily mitigated with heap allocation. Floral provides two functions for heap (de)allocation: `alloc<T>(Type, UInt): &T` and `dealloc<T>(&T)`.
+This can be easily mitigated with heap allocation. Floral provides two functions for heap (de)allocation: `alloc(UInt, UInt): &Void` and `dealloc(&Void)`.
 
 ```
 func ptrToInt(): &Int {
-    var ptr = alloc(Int, 1);
+    var ptr = alloc(sizeof(Int), 1); // allocate on heap
     *ptr = 67;
     return ptr;
 }
@@ -70,4 +70,4 @@ func main(): Int {
 }
 ```
 
-Under the hood, Floral uses the C functions `malloc` and `free`. These functions are available with the directive `using C;`.
+Under the hood, Floral uses the C functions `malloc` and `free`. These functions are available in the `<cbridge.fh>` header.

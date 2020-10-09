@@ -16,7 +16,9 @@
 
 namespace Floral {
     class Lexer: public ErrorReporting {
+    public:
         std::string code;
+    private:
         size_t pos {};
         size_t line {1};
         
@@ -51,6 +53,8 @@ namespace Floral {
         bool isQuoteChar(void);
         bool isDotChar(void);
         
+        std::pair<const std::string, const TokenType> _analyze(const std::string& str);
+        
         Token multichar(bool substitute = true);
         Token simpleStr(void);
         Token number(void);
@@ -60,6 +64,7 @@ namespace Floral {
         Token drive(void);
         
     public:
+        bool _doanalyze {};
         std::vector<Token> lex();
     };
 }

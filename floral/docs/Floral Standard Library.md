@@ -1,4 +1,5 @@
 # Floral Standard Library
+# WARNING: SPECIFICATION CHANGED
 
 The Floral standard library defines a multitude of functions to help programmers build functional programs. This document describes the standard library in detail.
 

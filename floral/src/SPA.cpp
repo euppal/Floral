@@ -410,10 +410,12 @@ namespace Floral {
             for (auto node: func->body()) {
                 if (auto stm = dynamic_cast<Statement*>(node)) {
                     if (analyze(stm) != 0) return 1;
-                    if (auto let = dynamic_cast<LetStatement*>(decl)) {
-                        func->staticAllocationSize += let->type()->size();
-                    } else if (auto var = dynamic_cast<VarStatement*>(decl)) {
-                        func->staticAllocationSize += var->type()->size();
+                    if (auto let = dynamic_cast<LetStatement*>(stm)) {
+                        func->staticAllocationSize += let->type()->alignment();
+                    } else if (auto var = dynamic_cast<VarStatement*>(stm)) {
+                        func->staticAllocationSize += var->type()->alignment();
+                    } else if (auto block = dynamic_cast<Block*>(stm)) {
+                        func->staticAllocationSize += block->size();
                     }
                 } else if (auto decl = dynamic_cast<Declaration*>(node)) {
                     if (analyze(decl) != 0) return 1;
@@ -557,6 +559,9 @@ namespace Floral {
                 case Literal::LType::decimalByte: {
                     return new Type(new Token({0,0}, TokenType::charType, "Char"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
                 }
+                case Literal::LType::decimalWideChar: {
+                    return new Type(new Token({0,0}, TokenType::wideCharType, "WideChar"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                }
                 case Literal::LType::decimalShort: {
                     return new Type(new Token({0,0}, TokenType::shortType, "Short"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
                 }
@@ -569,14 +574,16 @@ namespace Floral {
                 case Literal::LType::decimalUByte: {
                     return new Type(new Token({0,0}, TokenType::ucharType, "UChar"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
                 }
+                case Literal::LType::decimalWideUChar: {
+                    return new Type(new Token({0,0}, TokenType::wideUCharType, "WideUChar"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                }
                 case Literal::LType::decimalUShort: {
                     return new Type(new Token({0,0}, TokenType::ushortType, "UShort"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
                 }
                 case Literal::LType::decimalUInt32: {
                     return new Type(new Token({0,0}, TokenType::uint32Type, "UInt32"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
-
                 }
-                case Literal::LType::simpleString: {
+                case Literal::LType::cString: {
                     return new Type(new Type(new Token({0,0}, TokenType::charType, "Char")), true, true);
                 }
                 default:

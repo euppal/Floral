@@ -1,4 +1,5 @@
 #  Variables, Constants and Initialization
+# WARNING: SPECIFICATION CHANGED
 
 The chief format for storing, passing around and operating on data involves the declaration of variables or constants and then their initialization. Here is an example Floral program:
 

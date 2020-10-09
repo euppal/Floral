@@ -60,6 +60,11 @@ namespace Floral {
             case TokenType::notOp: {
                 if (!left && right) return right->isBool() ? new Type(new Token({ 0, 0 }, TokenType::boolType, "Bool"), right->isConst()) : nullptr;
             }
+            case TokenType::leftBracket: {
+                if (left && right) return (
+                    left->isPointer() && right->isNumber()
+                ) ? left->_ptrType : nullptr;
+            }
             default:
                 break;
         }

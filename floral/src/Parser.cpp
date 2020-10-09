@@ -126,7 +126,7 @@ namespace Floral {
         switch (current().type) {
             case TokenType::andOp:
                 advance();
-                if (current().isType() || current().type == TokenType::leftParenthesis || current().type == TokenType::leftBracket) {
+                if (current().isType() || current().type == TokenType::leftParenthesis || current().type == TokenType::leftBracket || current().type == TokenType::andOp || current().type == TokenType::const_) {
                     return new Type(type(), true, isConst);
                 } else {
                     auto lhs {new Type(type(), true, isConst)};
@@ -458,14 +458,18 @@ namespace Floral {
     }
 
     Literal* Parser::literalexpr() {
-        const Token cpy = current(); advance();
+        Token cpy = current(); advance();
         const TextRegion loc { cpy, cpy };
         switch (cpy.type) {
             case TokenType::boolTrue:
             case TokenType::boolFalse:
                 return new Literal(loc, Literal::LType::boolean, cpy);
             case TokenType::simpleString:
-                return new Literal(loc, Literal::LType::simpleString, cpy);
+                while (!eof() && current().type == TokenType::simpleString) {
+                    cpy.contents += current().contents;
+                    index++;
+                }
+                return new Literal(loc, Literal::LType::cString, cpy);
             case TokenType::numFloating:
                 return new Literal(loc, Literal::LType::floatingPointNumber, cpy);
             case TokenType::numIntHex:
@@ -474,6 +478,8 @@ namespace Floral {
                 return new Literal(loc, Literal::LType::decimalInteger, cpy);
             case TokenType::numByteDec:
                 return new Literal(loc, Literal::LType::decimalByte, cpy);
+            case TokenType::numWideChar:
+                return new Literal(loc, Literal::LType::decimalWideChar, cpy);
             case TokenType::numShortDec:
                 return new Literal(loc, Literal::LType::decimalShort, cpy);
             case TokenType::numInt32Dec:
@@ -482,10 +488,15 @@ namespace Floral {
                 return new Literal(loc, Literal::LType::decimalUInteger, cpy);
             case TokenType::numUByteDec:
                 return new Literal(loc, Literal::LType::decimalUByte, cpy);
+            case TokenType::wideUCharType:
+                return new Literal(loc, Literal::LType::decimalWideUChar, cpy);
             case TokenType::numUShortDec:
                 return new Literal(loc, Literal::LType::decimalUShort, cpy);
             case TokenType::numUInt32Dec:
                 return new Literal(loc, Literal::LType::decimalUInt32, cpy);
+            case TokenType::null:
+                cpy.contents = "0";
+                return new Literal(loc, Literal::LType::decimalUInteger, cpy);
             default:
                 return nullptr;
         }
@@ -524,11 +535,17 @@ namespace Floral {
     BinaryExpression* Parser::binaryexpr(Expression* lhs, OperatorComponentExpression* op) {
         Expression* rhs = primaryexpr();
         const Token start { current() };
+        BAD_NEVER_AGAIN:
         if (current().isOperator()) {
+            if (current().type == TokenType::rightBracket && op->tkntype()== TokenType::leftBracket) {
+                advance();
+                goto BAD_NEVER_AGAIN;
+            }
             OperatorComponentExpression* nextOp = this->op();
             if (nextOp->precedence(OperatorComponentExpression::infix) > op->precedence(OperatorComponentExpression::infix)) {
+                Expression* next = binaryexpr(rhs, nextOp);
                 const Token end { current() };
-                return new BinaryExpression({ start, end }, lhs, op, binaryexpr(rhs, nextOp));
+                return new BinaryExpression({ start, end }, lhs, op, next);
             } else {
                 const Token end { current() };
                 return binaryexpr(new BinaryExpression({ start, end }, lhs, op, rhs), nextOp);
@@ -703,13 +720,15 @@ namespace Floral {
                         synchronize();
                         break;
                     }
-                    match(TokenType::semicolon, " at end of using directive");
-                    if (id.contents == "syscalls") {
-                        _use.push_back(Use::syscalls);
-                    } else if (id.contents == "C") {
-                        _use.push_back(Use::C);
+                    if (match(TokenType::semicolon, " at end of using directive").isInvalid()) {
+                        synchronize();
+                    } else {
+                        if (id.contents == "syscalls") {
+                            _use.push_back(Use::syscalls);
+                        } else if (id.contents == "C") {
+                            _use.push_back(Use::C);
+                        }
                     }
-                    synchronize();
                     break;
                 }
                 case TokenType::func: {

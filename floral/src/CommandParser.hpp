@@ -14,6 +14,11 @@
 #include "Error.hpp"
 
 namespace Floral {
+    enum class CmdFileExt {
+        floral, fh, c, nasm, exec, unknown
+    };
+    typedef std::pair<std::string, CmdFileExt> CmdFile;
+
     struct Command {
         int argc;
         const char* *argv;
@@ -22,12 +27,14 @@ namespace Floral {
     bool ends_with(const std::string& fullString, const std::string& ending);
 
     class CommandParser: public ErrorReporting {        
-        std::vector<std::string> _files;
-        std::vector<std::string> _infiles;
-        std::string _outfile;
+        std::vector<CmdFile> _infiles;
+        CmdFile _outfile;
         int _optimization = 0;
         int _useC = false;
         int _noStdlibHeader = false;
+        int _logDebugInfo = false;
+        int _catSrc = false;
+        int _typeTrace = false;
         
         std::vector<Error> _errors;
         void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
@@ -41,11 +48,14 @@ namespace Floral {
         bool hasWarnings() const;
         const std::vector<Error>& warnings() const;
         
-        const std::vector<std::string>& infiles() const;
-        const std::string& outfile() const;
+        const std::vector<CmdFile>& infiles() const;
+        const CmdFile& outfile() const;
         const int optimization() const;
         const int usingCFunctions() const;
         const int notUsingStdlibHeader() const;
+        const int logDebugInfo() const;
+        const int catSource() const;
+        const int typeTrace() const;
     };
 }
 

@@ -39,38 +39,34 @@ namespace Floral {
                     } else {
                         _optimization = 1;
                     }
-                } else if (strncmp(arg + 1, "-use-C", 2) == 0) {
+                } else if (strncmp(arg + 1, "-use-C", 6) == 0) {
 //                    std::cout << "Arg: Include the C functions header\n";
                     _useC = true;
-                } else if (strncmp(arg + 1, "-no-stdlib-header", 2) == 0) {
+                } else if (strncmp(arg + 1, "-no-stdlib-header", 17) == 0) {
 //                    std::cout << "Arg: Do not include the stdlib header\n";
                     _noStdlibHeader = true;
-                } else if (false) {
+                } else if (strncmp(arg + 1, "o", 1) == 0) {
+                    index++; command.argc--;
+                    _outfile = {
+                        command.argv[index],
+                        CmdFileExt::exec
+                    };
+                } else if (strncmp(arg + 1, "-verbose", 9)) {
+                    _logDebugInfo = true;
+                } else if (strncmp(arg + 1, "-cat-src", 9)) {
+                    _catSrc = true;
+                } else if (strncmp(arg + 1, "-type-trace", 12)) {
+                    _typeTrace = true;
+                }
+                else if (false) {
                     
                 }
             } else {
-                std::string str { arg };
-                if (!(ends_with(str, ".floral") || ends_with(str, ".fh") || ends_with(str, ".s") || ends_with(str, ".asm") || ends_with(str, ".nasm"))) {
-                    report(Error::parseDomain, "The Floral compiler only accepts .floral/.fh files and .s/.asm/.nasm files for assembly output.\n", { 0, 0, 0, 0}, { 0, 0 });
-                    return;
-                }
-                files.push_back(str);
-            }
-        }
-        if (files.size() == 0) {
-            std::cout << "Missing infile and/or outfile";
-            return;
-        } else {
-            _infiles.reserve(files.size() - 1);
-            for (size_t index{}; index < files.size() - 1; index++) {
-                _infiles.push_back(files[index]);
-            }
-            if (files.size() == 0) {
-                std::string last {files.back()};
-                last.erase(last.end() - 6, last.end());
-                _outfile = last.c_str();
-            } else {
-                _outfile = files.back();
+                const std::string str { arg };
+                _infiles.push_back({
+                    str,
+                    ends_with(str, ".floral") ? CmdFileExt::floral : ends_with(str, ".fh") ? CmdFileExt::fh : ends_with(str, ".c") ? CmdFileExt::c : ends_with(str, ".nasm") ? CmdFileExt::nasm : CmdFileExt::unknown
+                });
             }
         }
     }
@@ -100,10 +96,10 @@ namespace Floral {
     }
 
 
-    const std::vector<std::string>& CommandParser::infiles() const {
+    const std::vector<CmdFile>& CommandParser::infiles() const {
         return _infiles;
     }
-    const std::string& CommandParser::outfile() const {
+    const CmdFile& CommandParser::outfile() const {
         return _outfile;
     }
     const int CommandParser::optimization() const {
@@ -114,5 +110,14 @@ namespace Floral {
     }
     const int CommandParser::notUsingStdlibHeader() const {
         return _noStdlibHeader;
+    }
+    const int CommandParser::logDebugInfo() const {
+        return _logDebugInfo;
+    }
+    const int CommandParser::catSource() const {
+        return _catSrc;
+    }
+    const int CommandParser::typeTrace() const {
+        return _typeTrace;
     }
 }

@@ -26,7 +26,7 @@ constexpr bool NO_COMMENTS = false;
 #define IS_RBPOFFSET(loc) ((loc).reg == static_cast<int>(Register::rbp) && (loc).isDereference)
 #define IS_REG(loc) ((loc).reg != LOC_IS_NOT_REG && !(loc).isDereference && !(loc).offset)
 #define ARE_BOTH_LIT(leftop, rightop) ((leftop)->src.isLiteral && (rightop)->src.isLiteral)
-
+#define NO_OPTM(op) (!(op)->comment.empty() && (op)->comment.front() == '@')
 namespace Floral {
     const std::string join(const std::vector<std::string>& vector, const std::string& sep);
 
@@ -160,6 +160,7 @@ namespace Floral {
     enum class Register;
     Location RegisterLocation(Register reg);
     Location ValueAtRegisterLocation(Register reg);
+    Location ValueAtOffsetRegisterLocation(Register reg, long long offset);
     Location RBPOffsetLocation(long offset);
     Location NumberLiteralLocation(bool isSigned, union SignedUnsigned value);
     Location RelativeLabelLocation(const std::string& lbl);

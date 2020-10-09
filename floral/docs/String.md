@@ -1,4 +1,5 @@
 #  String
+# WARNING: SPECIFICATION CHANGED
 
 The Floral structure representing strings of characters is encapsulated by `String`. Similarly to `Array` it provides a random-access mutable interface for contiguous characters.
 

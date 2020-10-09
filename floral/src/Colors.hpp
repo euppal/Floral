@@ -36,7 +36,6 @@ enum class Color {
     unbold = 2
 };
 
-
 struct ColoredStream {
     ColoredStream() {}
     

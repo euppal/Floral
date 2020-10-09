@@ -1,4 +1,5 @@
 # The Floral Compiler (floralc)
+# WARNING: SPECIFICATION CHANGED
 
 The Floral compiler is a program which converts floral programs into machine code. This article documents its usage.
 

@@ -1,4 +1,5 @@
 # Floral Headers
+# WARNING: SPECIFICATION CHANGED
 
 The Floral compiler compiles on a per-file basis. Hence, the use of external functions requires a workaround. Floral, like C, allows you to forward declare functions and structures. 
 

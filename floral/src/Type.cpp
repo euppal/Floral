@@ -101,6 +101,12 @@ namespace Floral {
     bool Type::isUChar() const {
         return _tknValue && _tknValue->type == TokenType::ucharType;
     }
+    bool Type::isWideChar() const {
+        return _tknValue && _tknValue->type == TokenType::wideCharType;
+    }
+    bool Type::isWideUChar() const {
+        return _tknValue && _tknValue->type == TokenType::wideUCharType;
+    }
     bool Type::isVoid() const {
         return _tknValue && _tknValue->type == TokenType::voidType;
     }
@@ -138,7 +144,9 @@ namespace Floral {
             _tknValue->type == TokenType::shortType ||
             _tknValue->type == TokenType::ushortType ||
             _tknValue->type == TokenType::charType ||
-            _tknValue->type == TokenType::ucharType // || float types...
+            _tknValue->type == TokenType::ucharType ||
+            _tknValue->type == TokenType::wideCharType ||
+            _tknValue->type == TokenType::wideUCharType // || float types...
         );
     }
 
@@ -152,7 +160,9 @@ namespace Floral {
             _tknValue->type == TokenType::shortType ||
             _tknValue->type == TokenType::ushortType ||
             _tknValue->type == TokenType::charType ||
-            _tknValue->type == TokenType::ucharType)
+            _tknValue->type == TokenType::ucharType ||
+            _tknValue->type == TokenType::wideCharType ||
+            _tknValue->type == TokenType::wideUCharType)
         );
     }
 
@@ -167,7 +177,7 @@ namespace Floral {
         if (isBool()) return 1;
         if (isChar() || isUChar()) return 1;
         if (isShort() || isUShort()) return 2;
-        if (isInt32() || isUInt32()) return 4;
+        if (isInt32() || isUInt32() || isWideChar() || isWideUChar()) return 4;
         if (isInt() || isUInt()) return 8;
         if (isVoid()) return 0;
         if (isTuple()) return std::reduce(_tupleType, _tupleType + (_tupleLen - 1), 0UL, [](unsigned long lhs, Type* rhs) -> unsigned long {
@@ -182,7 +192,7 @@ namespace Floral {
         if (isBool()) return 8;
         if (isChar() || isUChar()) return 8;
         if (isShort() || isUShort()) return 8;
-        if (isInt32() || isUInt32()) return 8;
+        if (isInt32() || isUInt32() || isWideChar() || isWideUChar()) return 8;
         if (isInt() || isUInt()) return 8;
         if (isVoid()) return 0;
         assert(false && "Not implemented");
@@ -213,6 +223,8 @@ namespace Floral {
         if (isUShort()) return "u16";
         if (isChar()) return "ch";
         if (isUChar()) return "uch";
+        if (isWideChar()) return "wch";
+        if (isWideUChar()) return "wuch";
         
         if (isPointer()) return _ptrType->shortID() + "ptr";
         if (isArray()) return _arrType->shortID() + "arr";

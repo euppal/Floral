@@ -48,14 +48,13 @@ namespace Floral {
         return INDENT + prefixed(label) + ": " + sizeTypeNames[static_cast<int>(sizeType)];
     }
     const std::string StringData::str() const {
-        std::string modifiedContents {contents};
-        for (size_t index = modifiedContents.size(); index > 0; index--) {
-            if (modifiedContents[index] == '\n') {
-                modifiedContents[index] = 'n';
-                modifiedContents.insert(modifiedContents.begin() + index, '\\');
-            }
+        std::string_view view {'`' + contents};
+        if (strncmp(view.data(), "``, ", 4) == 0) {
+            view.remove_prefix(4);
         }
-        return INDENT + prefixed(label) + ": db `" + modifiedContents + "\\0`"; //"`, 0";
+        std::string str {view};
+        str.append("\\0`");
+        return INDENT + prefixed(label) + ": db " + str;
     }
     const std::string LengthOf::str() const {
         return INDENT + prefixed(lbl) + ": equ $-" + src;
@@ -167,6 +166,9 @@ namespace Floral {
     }
     Location ValueAtRegisterLocation(Register reg) {
         return {static_cast<int>(reg), 0, false, false, 0, false, "", true};
+    }
+    Location ValueAtOffsetRegisterLocation(Register reg, long long offset) {
+        return {static_cast<int>(reg), offset, false, false, 0, false, "", true};
     }
     Location RBPOffsetLocation(long offset) {
         return {static_cast<int>(Register::rbp), offset, false, false, 0, false, "", true};

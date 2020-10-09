@@ -1,4 +1,5 @@
 #  Structs
+# WARNING: SPECIFICATION CHANGED
 
 Alongside the built-in types, Floral allows the programmer to define their own types through `struct`s. A basic example follows:
 
@@ -55,7 +56,7 @@ struct Counter {
         this->value++;
     }
 
-exposed get:
+public get:
     var value: Int;
 };
 ```
@@ -64,19 +65,19 @@ There are a couple new things here. One is the initializer which, similarly to C
 
 Alongside the initializer, with the deinitializer `~TypeName() {}` you can perform necessary cleanup and free dynamically allocated memory.
 
-There is also the struct section `exposed get` which is composed of two keywords. A section declared `exposed` or `exposed get set` will have its members visible and externally mutable (`exposed get set` is the default). A section  declared `exposed get` will be externally visible and immutable. There is also `internal` which declares a section only accessible from within the `struct`.
+There is also the struct section `public get` which is composed of two keywords. A section declared `public` or `public get set` will have its members visible and externally mutable (`public get set` is the default). A section  declared `public get` will be externally visible and immutable. There is also `internal` which declares a section only accessible from within the `struct`.
 
 Here is an example:
 
 ```
 struct Sections {
-// exposed [get set]:
+// public [get set]:
     var open: Int;
 
 internal:
     var secret: Int; // only function members can access this
 
-exposed get:
+public get:
     var getter: Int; // can be read but not set
 };
 ```

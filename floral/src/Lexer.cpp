@@ -11,6 +11,7 @@
 #include <string>
 #include <cctype>
 #include <vector>
+#include "File IO.hpp"
 
 namespace Floral {
     Lexer::Lexer(const std::string &code):
@@ -102,13 +103,28 @@ namespace Floral {
         return eof() || isSpaceChar() || current() == '\n';
     }
     bool Lexer::isNumSuffix() {
-        return current() == 'u' || current() == 'b' || current() == 'w' || current() == 'd';
+        return current() == 'u' || current() == 'b' || current() == 'w' || current() == 'd' || current() == 'c';
     }
     bool Lexer::isQuoteChar() {
         return current() == '\"';
     }
     bool Lexer::isDotChar() {
         return current() == '.';
+    }
+
+    // https://thispointer.com/find-and-replace-all-occurrences-of-a-sub-string-in-c/
+    void findAndReplaceAll(std::string & data, std::string toSearch, std::string replaceStr)
+    {
+        // Get the first occurrence
+        size_t pos = data.find(toSearch);
+        // Repeat till end is reached
+        while( pos != std::string::npos)
+        {
+            // Replace this occurrence of Sub String
+            data.replace(pos, toSearch.size(), replaceStr);
+            // Get the next occurrence from the current position
+            pos =data.find(toSearch, pos + replaceStr.size());
+        }
     }
 
     Token Lexer::multichar(bool substitute) {
@@ -123,7 +139,12 @@ namespace Floral {
         }
         if (Floral::keywordMap.find(id) != Floral::keywordMap.end())
             return { cachedLoc, Floral::keywordMap.at(id), id };
-        return { cachedLoc, TokenType::identifier, id };
+        if (_doanalyze) {
+            const auto result = _analyze(id);
+            return { cachedLoc, result.second, result.first };
+        }
+        std::pair<const std::string, const TokenType> result = { id, TokenType::identifier };
+        return { cachedLoc, result.second, result.first };
     }
 
     Token Lexer::simpleStr() {
@@ -181,45 +202,48 @@ namespace Floral {
         while (!eof() && isNumSuffix()) {
             switch (current()) {
                 case 'u':
-                    flags |= 0b0001;
+                    flags |= 0b00001;
                     break;
                 case 'b':
-                    flags |= 0b0010;
+                    flags |= 0b00010;
                     break;
                 case 'w':
-                    flags |= 0b0100;
+                    flags |= 0b00100;
                     break;
                 case 'd':
-                    flags |= 0b1000;
+                    flags |= 0b01000;
+                    break;
+                case 'c':
+                    flags |= 0b10000;
                     break;
             }
             pos++;
         }
-        static const TokenType num_types[16] {
-            TokenType::numIntDec,
-            TokenType::numUIntDec,
-            TokenType::numByteDec,
-            TokenType::numUByteDec,
-            TokenType::numShortDec,
-            TokenType::numUShortDec,
-            TokenType::invalid,
-            TokenType::invalid,
-            TokenType::numInt32Dec,
-            TokenType::numUInt32Dec,
-            TokenType::invalid,
-            TokenType::invalid,
-            TokenType::invalid,
-            TokenType::invalid,
-            TokenType::invalid,
-            TokenType::invalid,
+        const TokenType num_type {
+            flags == 0b00000 ? TokenType::numIntDec : (
+            flags == 0b00001 ? TokenType::numUIntDec : (
+            flags == 0b00010 ? TokenType::numByteDec : (
+            flags == 0b00011 ? TokenType::numUByteDec : (
+            flags == 0b00100 ? TokenType::numShortDec : (
+            flags == 0b00101 ? TokenType::numUShortDec : (
+            flags == 0b01000 ? TokenType::numInt32Dec : (
+            flags == 0b01001 ? TokenType::numUInt32Dec : (
+            flags == 0b10000 ? TokenType::numWideChar : (
+            flags == 0b10001 ? TokenType::numWideUChar : TokenType::invalid)))))))))
         };
-        const TokenType num_type { num_types[flags] };
         if (num_type == TokenType::invalid) {
             report(Error::lexDomain, "Unknown integer type suffix", { pos, 1, line, line }, { pos, 1 });
         }
         return { cachedLoc, dot ? TokenType::numFloating : num_type, num };
     }
+
+    std::pair<const std::string, const TokenType> Lexer::_analyze(const std::string& str) {
+        Lexer lexer(str);
+        lexer._doanalyze = false;
+        return { str, lexer.drive().type };
+    }
     
+    uint32_t utf8_to_utf32(uint8_t* text);
     Token Lexer::drive() {
         while (isSpaceChar()) {
             advance();
@@ -229,6 +253,27 @@ namespace Floral {
             return _tkn(TokenType::invalid, "");
 
         comments();
+        
+        if (current() == 'W' && peek() == '\'') {
+            pos += 2;
+            uint8_t utf8[5] { 0, 0, 0, 0, 0 };
+            int l {};
+            while (!eof() && current() != '\'') {
+                if (l >= 4) {
+                    report(Error::lexDomain, "Wide character literal larger than 4 bytes", { pos, 1, line, line }, { pos, 1 });
+                    return _tkn(TokenType::invalid, "");
+                }
+                utf8[l] = (unsigned char)current();
+                pos++; l++;
+            }
+            const uint64_t c = utf8_to_utf32(utf8);
+            if (current() != '\'') {
+                report(Error::lexDomain, "Expected single quote at end of wide character literal", { pos, 1, line, line }, { pos, 1 });
+                return _tkn(TokenType::invalid, "");
+            }
+            pos++;
+            return _tkn(TokenType::numWideChar, std::to_string(c));
+        }
 
         if (isDigitChar())
             return number();
@@ -248,7 +293,29 @@ namespace Floral {
                     report(Error::lexDomain, "Unexpected newline in character literal", { pos - 1, 1, line, line }, { pos - 1, 1 }, "Did you mean to use '\\n' instead?");
                     break;
                 }
-                const char c = current();
+                char c = current();
+                if (c == '\\') {
+                    pos++;
+                    switch (current()) {
+                        case 'n':
+                            c = '\n';
+                            break;
+                        case 'e':
+                            c = '\e';
+                            break;
+                        case 't':
+                            c = '\t';
+                            break;
+                        case '\"':
+                            c = '\"';
+                            break;
+                        case '\'':
+                            c = '\'';
+                            break;
+                        default:
+                            break;
+                    }
+                }
                 pos++;
                 if (current() == '\'') {
                     tmp = _tkn(TokenType::numByteDec, std::to_string(c));
@@ -347,6 +414,48 @@ namespace Floral {
                 } else if (prepr_macro == "endif") {
                     tmp = _tkn(TokenType::macro, "#endif");
                     break;
+                } else if (prepr_macro == "include") {
+                    next();
+                    if (current() != ' ') {
+                        report(Error::lexDomain, "Expected space after include macro", { pos, 1, line, line }, { pos, line});
+                        break;
+                    }
+                    next();
+                    
+                    if (current() == '<') {
+                        pos++;
+                        std::string includePath;
+                        while (!eof() && current() != '>') {
+                            includePath.push_back(current());
+                            pos++;
+                        }
+                        std::string buffer;
+                        read("/Users/ethanuppal/Programming/floral-src/include/" + includePath, buffer);
+                        const std::string des = "#include <" + includePath + '>';
+                        tmp = _tkn(TokenType::macro, des);
+                        code.erase(code.begin() + tpos, code.begin() + tpos + des.size());
+                        line--;
+                        pos = tpos;
+                        if (!buffer.empty()) {
+                            code.insert(pos, buffer);
+                        }
+                        pos--;
+                        break;
+                    } else {
+                        const std::string name = simpleStr().contents;
+                        
+                        std::string buffer;
+                        read(name, buffer);
+                        if (!buffer.empty()) {
+                            code.insert(pos, buffer);
+                        }
+                        const std::string des = "#include \"" + name + '\"';
+                        tmp = _tkn(TokenType::macro, des);
+                        code.erase(code.begin() + tpos, code.begin() + tpos + des.size());
+                        line--;
+                        pos = tpos;
+                        break;
+                    }
                 }
                 else {
                     report(Error::lexDomain, "Unknown preproccessor macro", { tpos, pos - tpos, line, line }, { tpos, 1 });
@@ -497,5 +606,30 @@ namespace Floral {
                     return;
             }
         }
+    }
+
+    // Modified from https://codereview.stackexchange.com/questions/197548/convert-utf8-string-to-utf32-string-in-c
+    uint32_t utf8_to_utf32(uint8_t* text) {
+        uint32_t c {};
+        size_t i = 0;
+
+        if ((text[i] & 0b10000000) == 0) {
+            // 1 byte code point, ASCII
+            c = (text[i] & 0b01111111);
+        }
+        else if ((text[i] & 0b11100000) == 0b11000000) {
+            // 2 byte code point
+            c = (text[i] & 0b00011111) << 6 | (text[i + 1] & 0b00111111);
+        }
+        else if ((text[i] & 0b11110000) == 0b11100000) {
+            // 3 byte code point
+            c = (text[i] & 0b00001111) << 12 | (text[i + 1] & 0b00111111) << 6 | (text[i + 2] & 0b00111111);
+        }
+        else {
+            // 4 byte code point
+            c = (text[i] & 0b00000111) << 18 | (text[i + 1] & 0b00111111) << 12 | (text[i + 2] & 0b00111111) << 6 | (text[i + 3] & 0b00111111);
+        }
+        
+        return c;
     }
 }
