@@ -275,6 +275,26 @@ namespace Floral {
         _loc.describe(' ');
     }
 
+    StructDeclaration::StructDeclaration(TextRegion loc, const Token& name, const std::vector<Statement*>& dataMembers, const std::vector<Function*>& functionMembers): Declaration(loc), _name(name), _dataMembers(dataMembers), _functionMembers(functionMembers) {}
+    StructDeclaration::~StructDeclaration() {
+        for (auto m_data: _dataMembers) delete m_data;
+        for (auto m_func: _functionMembers) delete m_func;
+    }
+        
+    void StructDeclaration::print() const {
+        std::cout << "Struct Declaration at loc ";
+        _loc.describe();
+    }
+    const Token& StructDeclaration::name() const {
+        return _name;
+    }
+    std::vector<Statement*>& StructDeclaration::dataMembers() {
+        return _dataMembers;
+    }
+    std::vector<Function*>& StructDeclaration::functionMembers() {
+        return _functionMembers;
+    }
+
     Statement::Statement(TextRegion loc): Node(loc) {}
     void Statement::print() const {
         std::cout << "Statement at loc ";

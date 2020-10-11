@@ -39,6 +39,7 @@ namespace Floral {
         Initializer* initializer();
         Declaration* function();
         Declaration* global();
+        StructDeclaration* structdef();
         Statement* statement(bool checkSemicolon = true);
         LetStatement* let(bool checkSemicolon = true);
         VarStatement* var(bool checkSemicolon = true);

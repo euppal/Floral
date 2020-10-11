@@ -1,6 +1,7 @@
-func hello();
-
-func main(): Int {
-    hello();
-    return 0;
-}
+struct Test {
+    var foo: Int;
+    var bar: Int;
+    func method() {
+    
+    }
+};

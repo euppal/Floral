@@ -563,6 +563,8 @@ namespace Floral {
                 } else
                     tmp = _tkn(TokenType::greater, ">");
                 break;
+            case '.':
+                tmp = _tkn(TokenType::dot, ".");
             default:
                 break;
         }

@@ -32,7 +32,7 @@ namespace Floral {
         leftParenthesis, rightParenthesis,
         leftBrace, rightBrace,
         leftBracket, rightBracket,
-        semicolon, colon, comma, arrow, backarrow,
+        semicolon, colon, comma, dot, arrow, backarrow,
         func,
         simpleString, boolTrue, boolFalse, null, numIntDec, numUIntDec, numByteDec, numUByteDec, numShortDec, numUShortDec, numInt32Dec, numUInt32Dec, numIntHex, numWideChar, numWideUChar, numFloating,
         int64Type, uint64Type,
@@ -43,7 +43,7 @@ namespace Floral {
         stringType, cStringType,
         voidType,
         plus, minus, inc, dec, multiply, divide, assign, notOp, andOp, orOp, modulus, xorOp, less, greater, lessEqual, greaterEqual, equal, unequal, power,
-        global, let, var, if_, while_, for_,
+        global, let, var, if_, while_, for_, struct_, behavior, predecl,
         return_, using_, const_, sizeof_, unsafe_cast
     };
     bool tokenTypeIsOperator(TokenType type);
@@ -53,7 +53,7 @@ namespace Floral {
         "leftParenthesis", "rightParenthesis",
         "leftBrace", "rightBrace",
         "leftBracket", "rightBracket",
-        "semicolon", "colon", "comma", "arrow", "backarrow",
+        "semicolon", "colon", "comma", "dot", "arrow", "backarrow",
         "func",
         "simpleString", "boolTrue", "boolFalse", "null", "long", "unsigned long", "signed char", "unsigned char", "signed short", "unsigned short", "signed int", "unsigned int", "hexadecimal long", "signed wide char", "unsigned wide char", "floatingPointNumber",
         "int64Type", "uint64Type",
@@ -64,7 +64,7 @@ namespace Floral {
         "stringType", "cStringType",
         "voidType",
         "plus", "minus", "inc", "dec", "multiply", "divide", "assign", "not", "and", "or", "modulus", "xor", "less", "greater", "lessEqual", "greaterEqual", "equal", "unequal", "power",
-        "global", "let", "var", "if", "while", "for",
+        "global", "let", "var", "if", "while", "for", "struct", "behavior", "predecl",
         "return", "using", "const", "sizeof", "unsafe_cast"
     };
 
@@ -79,6 +79,9 @@ namespace Floral {
         { "if", TokenType::if_ },
         { "while", TokenType::while_ },
         { "for", TokenType::for_ },
+        { "struct", TokenType::struct_ },
+        { "behavior", TokenType::behavior },
+        { "predecl", TokenType::predecl },
         { "Int", TokenType::int64Type },
         { "Int64", TokenType::int64Type },
         { "UInt", TokenType::uint64Type },

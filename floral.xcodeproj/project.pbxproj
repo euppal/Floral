@@ -74,6 +74,9 @@
 		581C5FCC2501654900DEE9F6 /* Instruction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Instruction.cpp; sourceTree = "<group>"; };
 		581C5FCD2501654900DEE9F6 /* Instruction.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Instruction.hpp; sourceTree = "<group>"; };
 		5855A60E2530C96800704F70 /* helper.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = helper.cpp; sourceTree = "<group>"; };
+		5855A6112530D46000704F70 /* Introduction.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Introduction.md; sourceTree = "<group>"; };
+		5855A6122530D5B500704F70 /* Hello World.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Hello World.md"; sourceTree = "<group>"; };
+		5855A6132530D5DE00704F70 /* Using floralc.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Using floralc.md"; sourceTree = "<group>"; };
 		585FDC272523A48300135392 /* Colors.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Colors.hpp; sourceTree = "<group>"; };
 		585FDC282523A48300135392 /* Colors.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Colors.cpp; sourceTree = "<group>"; };
 		5860F5E524FB1AE700E3FE47 /* driver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = driver.hpp; sourceTree = "<group>"; };
@@ -110,6 +113,7 @@
 		5894DF9F24BE3EDB000C8E05 /* Token.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Token.cpp; sourceTree = "<group>"; };
 		5894DFB824BE604C000C8E05 /* Other.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Other.h; sourceTree = "<group>"; };
 		5894DFCD24BFA636000C8E05 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		58A7E9DA25337EAE00AE82D7 /* The Main Function.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "The Main Function.md"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -150,6 +154,17 @@
 			path = depr;
 			sourceTree = "<group>";
 		};
+		5855A6102530D44300704F70 /* tutorial */ = {
+			isa = PBXGroup;
+			children = (
+				5855A6112530D46000704F70 /* Introduction.md */,
+				5855A6132530D5DE00704F70 /* Using floralc.md */,
+				5855A6122530D5B500704F70 /* Hello World.md */,
+				58A7E9DA25337EAE00AE82D7 /* The Main Function.md */,
+			);
+			path = tutorial;
+			sourceTree = "<group>";
+		};
 		587D161C24A9306100D20ED2 = {
 			isa = PBXGroup;
 			children = (
@@ -175,6 +190,7 @@
 				5855A60E2530C96800704F70 /* helper.cpp */,
 				5894DF8824BE3EDB000C8E05 /* main.cpp */,
 				5894DF8724BE3EDB000C8E05 /* Sources.hpp */,
+				5855A6102530D44300704F70 /* tutorial */,
 				581C5F9D24FC1C5E00DEE9F6 /* docs */,
 				5894DF8924BE3EDB000C8E05 /* src */,
 				5894DF8324BE3EDB000C8E05 /* proj */,

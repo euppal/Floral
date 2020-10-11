@@ -334,6 +334,40 @@ namespace Floral {
         const TextRegion loc { start, end };
         return new GlobalDeclaration(loc, name, gtype, init);
     }
+    StructDeclaration* Parser::structdef() {
+        const Token start = match(TokenType::struct_, " at start of struct");
+        if (start.isInvalid()) return nullptr;
+        const Token name = match(TokenType::identifier, " in struct name");
+        if (match(TokenType::leftBrace, " in struct").isInvalid()) return nullptr;
+        std::vector<Statement*> dataMembers;
+        std::vector<Function*> functionMembers;
+        while (!eof() && current().type != TokenType::rightBrace) {
+            switch (current().type) {
+                case TokenType::var:
+                    dataMembers.push_back(var());
+                    break;
+                case TokenType::func: {
+                    auto decl = function();
+                    if (auto func = dynamic_cast<Function*>(decl)) {
+                        functionMembers.push_back(func);
+                    } else {
+                        report(Error::parseDomain, "Function forward declarations are not allowed within a struct body", decl->_loc, { decl->_loc.pos, 4 });
+                        return nullptr;
+                    }
+                    break;
+                }
+                default:
+                    synchronize();
+                    return nullptr;
+                    break;
+            }
+        }
+        if (match(TokenType::rightBrace, " in struct").isInvalid()) return nullptr;
+        const Token end = match(TokenType::semicolon, " at end of struct");
+        if (end.isInvalid()) return nullptr;
+        return new StructDeclaration({ start, end }, name, dataMembers, functionMembers);
+    }
+
     LetStatement* Parser::let(bool checkSemicolon) {
         Token start { current() };
         advance();
@@ -383,6 +417,7 @@ namespace Floral {
         }
         if (current().type == TokenType::semicolon) {
             Token end { current() };
+            advance();
             TextRegion loc { start, end };
             return new VarStatement(loc, name, vtype, nullptr);
         }
@@ -700,7 +735,7 @@ namespace Floral {
         if (tokens.empty()) return nullptr;
         Token lastTkn { tokens.back() };
         TextRegion fileLoc { 0, lastTkn.end(), 1, lastTkn.line() };
-        File *file { new File(fileLoc, _path, std::vector<Node*>()) };
+        File *file { new File(fileLoc, _path, {}) };
         while (!eof()) {
             switch (current().type) {
                 case TokenType::macro:
@@ -745,20 +780,14 @@ namespace Floral {
                         synchronize();
                     }
                     break;
-                case TokenType::let: {
-                    if (auto l = let())
-                        file->insert(l);
-                    else
+                case TokenType::struct_: {
+                    if (auto strct = structdef()) {
+                        file->insert(strct);
+                    } else {
                         synchronize();
                     }
                     break;
-                case TokenType::var: {
-                    if (auto v = var())
-                        file->insert(v);
-                    else
-                        synchronize();
-                    }
-                    break;
+                }
                 default: {
                     if (auto stm = statement()) {
                         file->insert(stm);

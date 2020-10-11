@@ -446,6 +446,20 @@ namespace Floral {
         Statement* modify() const;
         Block* body() const;
     };
+    class StructDeclaration: public Declaration {
+        Token _name;
+        std::vector<Statement*> _dataMembers;
+        std::vector<Function*> _functionMembers;
+        
+    public:
+        StructDeclaration(TextRegion loc,const Token& name, const std::vector<Statement*>& dataMembers, const std::vector<Function*>& functionMembers);
+        ~StructDeclaration();
+        
+        virtual void print() const override;
+        const Token& name() const;
+        std::vector<Statement*>& dataMembers();
+        std::vector<Function*>& functionMembers();
+    };
 }
 
 #endif /* AST_hpp */

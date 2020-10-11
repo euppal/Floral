@@ -18,7 +18,7 @@ void heading(const std::string& str) {
 }
 
 void heading2(const std::string& h, const std::string& str) {
-    out << Color::blue << Color::bold << str << ": " << Color::reset << str << '\n';
+    out << Color::blue << Color::bold << h << ": " << Color::reset << str << '\n';
 }
 
 void note(const std::string& str) {

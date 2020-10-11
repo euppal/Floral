@@ -52,7 +52,7 @@ namespace Floral {
                 type == TokenType::leftBracket || type == TokenType::rightBracket;
     }
     bool Token::isDeclarator() const {
-        return type == TokenType::func || type == TokenType::global;
+        return type == TokenType::func || type == TokenType::global || type == TokenType::struct_;
     }
     bool Token::isType() const {
         auto intType { static_cast<int>(type) };
