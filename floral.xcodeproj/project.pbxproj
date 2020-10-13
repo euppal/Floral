@@ -114,6 +114,10 @@
 		5894DFB824BE604C000C8E05 /* Other.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Other.h; sourceTree = "<group>"; };
 		5894DFCD24BFA636000C8E05 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		58A7E9DA25337EAE00AE82D7 /* The Main Function.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "The Main Function.md"; sourceTree = "<group>"; };
+		58A7E9DB2533810C00AE82D7 /* Variables.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Variables.md; sourceTree = "<group>"; };
+		58A7E9DC2533824E00AE82D7 /* test.floral */ = {isa = PBXFileReference; lastKnownFileType = text; path = test.floral; sourceTree = "<group>"; };
+		58A7E9DD2533BB0700AE82D7 /* Constants - Local and Global.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Constants - Local and Global.md"; sourceTree = "<group>"; };
+		58A7E9DE2533BB1000AE82D7 /* Comments.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Comments.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -161,6 +165,9 @@
 				5855A6132530D5DE00704F70 /* Using floralc.md */,
 				5855A6122530D5B500704F70 /* Hello World.md */,
 				58A7E9DA25337EAE00AE82D7 /* The Main Function.md */,
+				58A7E9DB2533810C00AE82D7 /* Variables.md */,
+				58A7E9DD2533BB0700AE82D7 /* Constants - Local and Global.md */,
+				58A7E9DE2533BB1000AE82D7 /* Comments.md */,
 			);
 			path = tutorial;
 			sourceTree = "<group>";
@@ -203,6 +210,7 @@
 			children = (
 				5894DF8624BE3EDB000C8E05 /* main.floral */,
 				5878994A252E1A44000297CF /* hello.floral */,
+				58A7E9DC2533824E00AE82D7 /* test.floral */,
 				5894DF8424BE3EDB000C8E05 /* config.floralattr */,
 			);
 			path = proj;

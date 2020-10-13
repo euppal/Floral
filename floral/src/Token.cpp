@@ -7,6 +7,8 @@
 //
 
 #include "Token.hpp"
+#include "Type.hpp"
+#include "AST.hpp"
 #include <string>
 
 namespace Floral {
@@ -49,14 +51,17 @@ namespace Floral {
     bool tokenTypeIsOperator(TokenType type) {
         auto intType { static_cast<int>(type) };
         return ((intType >= static_cast<int>(TokenType::plus) && intType <= static_cast<int>(TokenType::unequal)) && type != TokenType::assign) ||
-                type == TokenType::leftBracket || type == TokenType::rightBracket;
+                type == TokenType::leftBracket || type == TokenType::rightBracket ||
+                type == TokenType::dot || type == TokenType::arrow;
     }
     bool Token::isDeclarator() const {
         return type == TokenType::func || type == TokenType::global || type == TokenType::struct_;
     }
     bool Token::isType() const {
         auto intType { static_cast<int>(type) };
-        return (intType >= static_cast<int>(TokenType::int64Type) && intType <= static_cast<int>(TokenType::voidType));
+        return (intType >= static_cast<int>(TokenType::int64Type) && intType <= static_cast<int>(TokenType::voidType)) || (std::find_if(Type::structs.begin(), Type::structs.end(), [this](StructDeclaration* struct_) -> bool {
+                return struct_->name().contents == contents;
+            }) != Type::structs.end());
     }
     bool Token::isValid() const {
         return !isInvalid();

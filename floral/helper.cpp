@@ -105,7 +105,7 @@ void compile(CmdFile& infile, const CommandParser& cmdParser, v2::Compiler& comp
             error.print(result);
         }
     } else {
-        execute("open -a /Applications/Atom.app " + infile.first);
+        execute("open -a /Applications/Atom.app \"" + infile.first + '\"');
     }
     
     if (cmdParser.logDebugInfo()) {
@@ -125,14 +125,15 @@ void make_objfile(std::vector<std::string>& objfiles, CmdFile& infile, const v2:
         std::string objfile { infile.first };
         objfile.erase(objfile.end() - 4, objfile.end());
         objfile.push_back('o');
-        execute("/usr/local/bin/nasm -f macho64 -o " + objfile + ' ' + infile.first);
-        objfiles.push_back(objfile);
+        execute("/usr/local/bin/nasm -f macho64 -o \"" + objfile + "\" \"" + infile.first + '\"');
+        objfiles.push_back('\"' + objfile + '\"');
         infile.first = objfile;
         infile.second = CmdFileExt::object;
     } else if (infile.second == CmdFileExt::c) {
-        execute("gcc -c " + infile.first + " -O" + std::to_string(compiler.optimization));
+        execute("gcc -c \"" + infile.first + " \"-O" + std::to_string(compiler.optimization));
         infile.first.pop_back();
         infile.first.push_back('o');
+        infile.first = '\"' + infile.first + '\"';
         infile.second = CmdFileExt::object;
     }
 }

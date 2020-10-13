@@ -1,7 +1,11 @@
-struct Test {
-    var foo: Int;
-    var bar: Int;
-    func method() {
-    
-    }
+struct ComplexInt {
+    var real: Int;
+    var imag: Int;
 };
+
+func main(): Int {
+    var complex: struct ComplexInt;
+    complex.real = 2;
+    complex.imag = 1;
+    return complex.real;
+}

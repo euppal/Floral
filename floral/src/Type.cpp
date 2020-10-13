@@ -7,18 +7,27 @@
 //
 
 #include "Type.hpp"
+#include "AST.hpp"
 #include <cassert>
 #include <numeric>
 
 namespace Floral {
-    Type::Type(Token* value, bool isConst): _tknValue(value), _arrType(nullptr), _ptrType(nullptr), _tupleType{}, _functionType{}, _isConst(isConst) {}
-    Type::Type(Type* value, bool isPtr, bool isConst): _tknValue(nullptr), _arrType(isPtr ? nullptr : value), _ptrType(isPtr ? value : nullptr), _tupleType{}, _functionType{}, _isConst(isConst) {}
-    Type::Type(Type* tuple[MAX_TUPLE_SIZE], const size_t size, bool isConst): _tknValue(nullptr), _arrType(nullptr), _ptrType(nullptr), _functionType{}, _isConst(isConst) {
+    Type::Type(Token* value, bool isConst): _tknValue(value), _arrType(nullptr), _structValue(nullptr), _ptrType(nullptr), _tupleType{}, _functionType{}, _isConst(isConst) {}
+    Type::Type(int, const std::string& name, bool isConst): _tknValue(nullptr), _arrType(nullptr), _ptrType(nullptr), _tupleType{}, _functionType{}, _isConst(isConst) {
+        auto iter = std::find_if(structs.begin(), structs.end(), [name](StructDeclaration* struct_) -> bool {
+            return struct_->name().contents == name;
+        });
+        if (iter != structs.end()) {
+            _structValue = *iter;
+        }
+    }
+    Type::Type(Type* value, bool isPtr, bool isConst): _tknValue(nullptr), _arrType(isPtr ? nullptr : value), _structValue(nullptr), _ptrType(isPtr ? value : nullptr), _tupleType{}, _functionType{}, _isConst(isConst) {}
+    Type::Type(Type* tuple[MAX_TUPLE_SIZE], const size_t size, bool isConst): _tknValue(nullptr), _arrType(nullptr), _structValue(nullptr), _ptrType(nullptr), _functionType{}, _isConst(isConst) {
         for (size_t i {}; i < size; ++i)
             _tupleType[i] = tuple[i];
         _tupleLen = size;
     }
-    Type::Type(Type* params, Type* ret, bool isConst): _tknValue(nullptr), _arrType(nullptr), _ptrType(nullptr), _tupleType{}, _functionType{ params, ret }, _isFunctionType(true), _isConst(isConst) {}
+    Type::Type(Type* params, Type* ret, bool isConst): _tknValue(nullptr), _arrType(nullptr), _structValue(nullptr), _ptrType(nullptr), _tupleType{}, _functionType{ params, ret }, _isFunctionType(true), _isConst(isConst) {}
     Type::~Type() {
         if (isToken())
             delete _tknValue;
@@ -33,7 +42,7 @@ namespace Floral {
             static_cast<void>(delete _functionType[0]), delete _functionType[1];
     }
 
-    const Type Type::void_ { new Token({0, 0}, TokenType::invalid, "") };
+    const Type Type::void_ { new Token({0, 0}, TokenType::voidType, "") };
     const void* Type::value() const {
         if (isArray()) return _arrType;
         if (isPointer()) return _ptrType;
@@ -46,9 +55,11 @@ namespace Floral {
     const std::string Type::des() const {
         std::string str;
         if (_isConst) str += "const ";
-        if (isToken())
+        if (isToken()) {
             str += _tknValue->contents;
-        else if (isArray()) {
+        } else if (isStruct()) {
+            str += "struct " + _structValue->name().contents;
+        } else if (isArray()) {
             str.push_back('[');
             str += _arrType->des();
             str.push_back(']');
@@ -114,6 +125,12 @@ namespace Floral {
     bool Type::isToken() const {
         return _tknValue;
     }
+    bool Type::isStruct() const {
+        return _structValue;
+    }
+    StructDeclaration* Type::structValue() {
+        return _structValue;
+    }
     bool Type::isPointer() const {
         return _ptrType;
     }
@@ -174,6 +191,16 @@ namespace Floral {
     }
 
     size_t Type::size() const {
+        if (isStruct()) {
+            size_t s {};
+            auto dataMembers = _structValue->dataMembers();
+            for (auto &dataMember: dataMembers) {
+                if (auto var = dynamic_cast<VarStatement*>(dataMember)) {
+                    s += (var->type()->size() + 7) & -8;
+                }
+            }
+            return s;
+        }
         if (isPointer() || isFunction()) return 8;
         if (isString()) return 24;
         if (isArray()) return 24;
@@ -189,6 +216,8 @@ namespace Floral {
         assert(false && "Not implemented");
     }
     size_t Type::alignment() const {
+        if (isStruct())
+            return (size() + 15) & -16;
         if (isPointer() || isFunction()) return 8;
         if (isString()) return 24;
         if (isArray()) return 24;
@@ -229,6 +258,7 @@ namespace Floral {
         if (isWideChar()) return "wch";
         if (isWideUChar()) return "wuch";
         
+        if (isStruct()) return _structValue->name().contents + "struct";
         if (isPointer()) return _ptrType->shortID() + "ptr";
         if (isArray()) return _arrType->shortID() + "arr";
         if (isFunction()) return _functionType[0]->shortID() + "to" + _functionType[1]->shortID() + "fptr";
@@ -240,6 +270,8 @@ namespace Floral {
         _isConst = isConst;
     }
 
+
+    std::vector<StructDeclaration*> Type::structs;
 }
 //bool isString() const;
 //bool isBool() const;

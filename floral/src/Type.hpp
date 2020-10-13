@@ -22,12 +22,14 @@
 namespace Floral {
     namespace v2 { class Compiler; }
     class StaticAnalyzer;
+    class StructDeclaration;
     class Type {
         friend class StaticAnalyzer;
         friend class v2::Compiler;
         friend class Operator;
-        
+                
         Token* _tknValue;
+        StructDeclaration* _structValue;
         Type* _ptrType;
         Type* _arrType;
         Type* _functionType[2];
@@ -37,7 +39,10 @@ namespace Floral {
         Type* _tupleType[MAX_TUPLE_SIZE];
         
     public:
+        static std::vector<StructDeclaration*> structs;
+
         Type(Token* value, bool isConst = false);                     // single type literal
+        Type(int, const std::string& name, bool isConst = false);     // struct type
         Type(Type* value, bool isPtr, bool isConst = false);          // array/ptr types
         Type(Type* tuple[MAX_TUPLE_SIZE], const size_t size, bool isConst = false); // tuple types
         Type(Type* params, Type* ret, bool isConst = false);          // function types
@@ -67,6 +72,8 @@ namespace Floral {
         bool isVoid(void) const;
         
         bool isToken(void) const;
+        bool isStruct(void) const;
+        StructDeclaration* structValue();
         bool isPointer(void) const;
         bool isCString(void) const;
         bool isFunction(void) const;

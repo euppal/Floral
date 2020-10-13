@@ -251,7 +251,7 @@ namespace Floral {
     const Initializer* VarStatement::initializer() const {
         return init;
     }
-    const Type* VarStatement::type() const {
+    Type* VarStatement::type() {
         return _type;
     }
     void VarStatement::setType(Type* newType) {
@@ -288,6 +288,20 @@ namespace Floral {
     const Token& StructDeclaration::name() const {
         return _name;
     }
+    long StructDeclaration::offsetOf(const std::string& memberName) const {
+        long offset = 0;
+        size_t index = 0;
+        while (index < _dataMembers.size()) {
+            if (auto var = dynamic_cast<VarStatement*>(_dataMembers[index])) {
+                if (var->name().contents == memberName) {
+                    break;
+                }
+                offset -= var->type()->size();
+            }
+            index++;
+        }
+        return offset;
+    }
     std::vector<Statement*>& StructDeclaration::dataMembers() {
         return _dataMembers;
     }
@@ -316,9 +330,11 @@ namespace Floral {
         delete _value;
     }
     void ReturnStatement::print() const {
-        std::cout << "Return Statement with value [";
-        if(_value) _value->pretty();
-        std::cout << "] at loc ";
+        std::cout << "Return Statement";
+        if (_value) {
+            std::cout << " with value [" << _value->prettystr() << ']';
+        }
+        std::cout << " at loc ";
         _loc.describe();
     }
     Expression* ReturnStatement::value() const {
@@ -337,7 +353,7 @@ namespace Floral {
         return _expr;
     }
     void ExpressionStatement::print() const {
-        std::cout << "Literal Statement at loc ";
+        std::cout << "Expression Statement with value [" << expr()->prettystr() << "] at loc ";
         _loc.describe();
     }
     PointerAssignment::PointerAssignment(TextRegion loc, Expression* ptrExpr, Expression* newValue): Statement(loc), _ptrExpr(ptrExpr), _newValue(newValue) {}
@@ -551,8 +567,9 @@ namespace Floral {
             case TokenType::leftBracket:
             case TokenType::inc:
             case TokenType::dec: return 60;
-            default:
-                return 0;
+            case TokenType::dot:
+            case TokenType::arrow: return 80;
+            default: return 0;
         }
     }
     const TokenType OperatorComponentExpression::tkntype() const {

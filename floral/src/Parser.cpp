@@ -113,6 +113,12 @@ namespace Floral {
     Type* Parser::type() {
         bool isConst{};
         if (current().type == TokenType::const_) isConst = true, advance();
+        if (current().type == TokenType::struct_) {
+            advance();
+            const auto structName = match(TokenType::identifier, " in struct type");
+            if (structName.isInvalid()) return nullptr;
+            return new Type(0, structName.contents, isConst);
+        }
         if (current().isType()) {
             auto t { new Type(new Token(current().loc, current().type, current().contents), isConst) };
             advance();
@@ -126,7 +132,7 @@ namespace Floral {
         switch (current().type) {
             case TokenType::andOp:
                 advance();
-                if (current().isType() || current().type == TokenType::leftParenthesis || current().type == TokenType::leftBracket || current().type == TokenType::andOp || current().type == TokenType::const_) {
+                if (current().isType() || current().type == TokenType::leftParenthesis || current().type == TokenType::leftBracket || current().type == TokenType::andOp || current().type == TokenType::const_ || current().type == TokenType::struct_) {
                     return new Type(type(), true, isConst);
                 } else {
                     auto lhs {new Type(type(), true, isConst)};
@@ -365,7 +371,9 @@ namespace Floral {
         if (match(TokenType::rightBrace, " in struct").isInvalid()) return nullptr;
         const Token end = match(TokenType::semicolon, " at end of struct");
         if (end.isInvalid()) return nullptr;
-        return new StructDeclaration({ start, end }, name, dataMembers, functionMembers);
+        auto struct_ = new StructDeclaration({ start, end }, name, dataMembers, functionMembers);
+        Type::structs.push_back(struct_);
+        return struct_;
     }
 
     LetStatement* Parser::let(bool checkSemicolon) {
@@ -550,16 +558,6 @@ namespace Floral {
     }
 
     Expression* Parser::expr() {
-        if (current().type == TokenType::sizeof_) {
-            const Token start = current();
-            advance();
-            if (match(TokenType::leftParenthesis, " in sizeof expression").isInvalid()) return nullptr;
-            Type* t = type();
-            if (match(TokenType::rightParenthesis, " in sizeof expression").isInvalid()) return nullptr;
-            return new SizeOfType({ start, current() }, t);
-        } else if (current().type == TokenType::unsafe_cast) {
-            return unsafecastexpr();
-        }
         Expression* lhs = primaryexpr();
         if (current().isOperator()) {
             OperatorComponentExpression* op = this->op();
@@ -591,6 +589,22 @@ namespace Floral {
         }
     }
     Expression* Parser::primaryexpr() {
+        if (current().type == TokenType::sizeof_) {
+            const Token start = current();
+            advance();
+            if (match(TokenType::leftParenthesis, " in sizeof expression").isInvalid()) return nullptr;
+            Type* t = type();
+            if (match(TokenType::rightParenthesis, " in sizeof expression").isInvalid()) return nullptr;
+            return new SizeOfType({ start, current() }, t);
+        } else if (current().type == TokenType::unsafe_cast) {
+            return unsafecastexpr();
+        }
+        if (current().type == TokenType::leftParenthesis) {
+            advance();
+            auto parsedExpr = expr();
+            if (match(TokenType::rightParenthesis, " to match opening '('").isInvalid()) return nullptr;
+            return parsedExpr;
+        }
         if (current().isLiteral()) return literalexpr();
         if (current().isId()) {
             if (peek().type == TokenType::leftParenthesis) return callexpr();

@@ -14,7 +14,7 @@ You might also notice the `: Int` after the `main()`. This is called the return 
 
 In a new file `return-value.floral` enter in the following code:
 
-```
+```swift
 func main(): Int {
     return 1 + 2 * 3;
 }

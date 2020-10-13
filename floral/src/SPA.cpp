@@ -80,6 +80,14 @@ namespace Floral {
                     );
                     return 1;
                 }
+            } else if (!scope().func->returnType()->isVoid()) {
+                report(
+                    Error::typeDomain,
+                    "Expected return value in non-Void function",
+                    rtn->_loc,
+                    { rtn->_loc.pos + 6, 0 }
+                );
+                return 1;
             }
         } else if (auto callStm = dynamic_cast<CallStatement*>(stm)) {
             if (analyze(callStm->call) != 0) return 1;
@@ -566,13 +574,43 @@ namespace Floral {
                 leftType = type(binaryExpression->left());
                 binaryExpression->left()->type = leftType;
             }
+            
+            const TokenType optkntype { binaryExpression->op()->tkntype() };
+            Operator op { optkntype };
+            
+            if (optkntype == TokenType::dot) {
+                auto member = dynamic_cast<SymbolExpression*>(binaryExpression->right());
+                if (leftType->isStruct() && member) {
+                    auto structType = leftType->structValue();
+                    auto iter = std::find_if(structType->dataMembers().begin(), structType->dataMembers().end(), [member](Statement* s) -> bool {
+                        if (auto var = dynamic_cast<VarStatement*>(s)) {
+                            return var->name().contents == member->value().contents;
+                        }
+                        return false;
+                    });
+                    if (iter != structType->dataMembers().end()) {
+                        if (auto var = dynamic_cast<VarStatement*>(*iter)) {
+                            return var->type();
+                        }
+                    } else {
+                        return nullptr;
+                    }
+                } else {
+                    report(
+                        Error::typeDomain,
+                        "Attempted to perform member access on non-struct data type",
+                        binaryExpression->op()->_loc,
+                        { binaryExpression->op()->_loc.pos, 0 }
+                    );
+                    return nullptr;
+                }
+            }
+            
             if (binaryExpression->right()) {
                 rightType = type(binaryExpression->right());
                 binaryExpression->right()->type = rightType;
             }
             
-            const TokenType tkntype { binaryExpression->op()->tkntype() };
-            Operator op { tkntype };
             if (auto rtype = op.overload(leftType, rightType))
                 return rtype;
             else {

@@ -51,11 +51,11 @@ namespace Floral {
                         command.argv[index],
                         CmdFileExt::exec
                     };
-                } else if (strncmp(arg + 1, "-verbose", 9)) {
+                } else if (strncmp(arg + 1, "-verbose", 9) == 0) {
                     _logDebugInfo = true;
-                } else if (strncmp(arg + 1, "-cat-src", 9)) {
+                } else if (strncmp(arg + 1, "-cat-src", 9) == 0) {
                     _catSrc = true;
-                } else if (strncmp(arg + 1, "-type-trace", 12)) {
+                } else if (strncmp(arg + 1, "-type-trace", 12) == 0) {
                     _typeTrace = true;
                 }
                 else if (false) {

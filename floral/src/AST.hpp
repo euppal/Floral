@@ -316,7 +316,7 @@ namespace Floral {
         
         virtual void print() const override;
         const Initializer* initializer() const;
-        const Type* type() const;
+        Type* type();
         void setType(Type* newType);
         const Token& name() const;
     };
@@ -457,6 +457,7 @@ namespace Floral {
         
         virtual void print() const override;
         const Token& name() const;
+        long offsetOf(const std::string& memberName) const;
         std::vector<Statement*>& dataMembers();
         std::vector<Function*>& functionMembers();
     };

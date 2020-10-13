@@ -210,26 +210,36 @@ namespace Floral { namespace v2 {
 
     // MARK: Assignment statement
     void Compiler::emitAssignmentStatement(Assignment* assignStm) {
-        if (auto layer1 = dynamic_cast<BinaryExpression*>(assignStm->lval())) {
-            if (layer1->op() && layer1->op()->tkntype() == TokenType::multiply && !layer1->left()) {
-                PointerAssignment ptrAssign { layer1->right()->_loc, layer1->right(), assignStm->rval() };
-                emitPointerAssignmentStatement(&ptrAssign);
-                ptrAssign.makenull();
-                return;
-            } else if (layer1->op() && layer1->op()->tkntype() == TokenType::leftBracket) {
-                const Token addOp { {layer1->op()->_loc.pos, layer1->op()->_loc.startLine}, TokenType::plus, "+" };
-                Expression* pointer = new BinaryExpression(layer1->_loc, layer1->left(), new OperatorComponentExpression(addOp), layer1->right());
-                PointerAssignment ptrAssign { assignStm->_loc, pointer, assignStm->rval() };
-                emitPointerAssignmentStatement(&ptrAssign);
-                ptrAssign.makenull();
-                return;
-            }
+//        if (auto layer1 = dynamic_cast<BinaryExpression*>(assignStm->lval())) {
+//            if (layer1->op() && layer1->op()->tkntype() == TokenType::multiply && !layer1->left()) {
+//                PointerAssignment ptrAssign { layer1->right()->_loc, layer1->right(), assignStm->rval() };
+//                emitPointerAssignmentStatement(&ptrAssign);
+//                ptrAssign.makenull();
+//                return;
+//            } else if (layer1->op() && layer1->op()->tkntype() == TokenType::leftBracket) {
+//                const Token addOp { {layer1->op()->_loc.pos, layer1->op()->_loc.startLine}, TokenType::plus, "+" };
+//                Expression* pointer = new BinaryExpression(layer1->_loc, layer1->left(), new OperatorComponentExpression(addOp), layer1->right());
+//                PointerAssignment ptrAssign { assignStm->_loc, pointer, assignStm->rval() };
+//                emitPointerAssignmentStatement(&ptrAssign);
+//                ptrAssign.makenull();
+//                return;
+//            }
+//        }
+//        const Token referenceOp { {assignStm->lval()->_loc.pos, assignStm->lval()->_loc.startLine}, TokenType::andOp, "&" };
+//        Expression* pointer = new BinaryExpression(assignStm->lval()->_loc, nullptr, new OperatorComponentExpression(referenceOp), assignStm->lval());
+//        PointerAssignment ptrAssign { assignStm->_loc, pointer, assignStm->rval() };
+//        emitPointerAssignmentStatement(&ptrAssign);
+//        ptrAssign.makenull();
+        const auto lhsloc = emitExpression(assignStm->lval(), true);
+        const auto rhsloc = emitExpression(assignStm->rval());
+        if (IS_REG(lhsloc)) {
+            emit(new MoveOperation(ValueAtRegisterLocation(static_cast<Register>(lhsloc.reg)), rhsloc, SizeType::qword, "assignment"), SectionType::text);
+        } else if (IS_RBPOFFSET(lhsloc)) {
+            emit(new MoveOperation(lhsloc, rhsloc, SizeType::qword, "assignment"), SectionType::text);
         }
-        const Token referenceOp { {assignStm->lval()->_loc.pos, assignStm->lval()->_loc.startLine}, TokenType::andOp, "&" };
-        Expression* pointer = new BinaryExpression(assignStm->lval()->_loc, nullptr, new OperatorComponentExpression(referenceOp), assignStm->lval());
-        PointerAssignment ptrAssign { assignStm->_loc, pointer, assignStm->rval() };
-        emitPointerAssignmentStatement(&ptrAssign);
-        ptrAssign.makenull();
+        if (IS_REG(rhsloc)) {
+            returnRegister(static_cast<Register>(rhsloc.reg));
+        }
     }
 
     // MARK: Pointer assignment statement
@@ -398,7 +408,7 @@ namespace Floral { namespace v2 {
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         NumLL(false, SU(0ULL)),
                         OPSIZE_FROM_NUM(v->type()->alignment()),
-                        "var " + name + " = 0"
+                        "@ var " + name + " = 0"
                     ),
                     SectionType::text
                 );
@@ -416,7 +426,7 @@ namespace Floral { namespace v2 {
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         result,
                         SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "var " + name + ""
+                        "@ var " + name + ""
                     ),
                     SectionType::text
                 );
@@ -436,7 +446,7 @@ namespace Floral { namespace v2 {
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         result,
                         SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "var " + name + ""
+                        "@ var " + name + ""
                     ),
                     SectionType::text
                 );
@@ -461,7 +471,7 @@ namespace Floral { namespace v2 {
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         NumLL(false, SU(0ULL)),
                         SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "let " + name + " = 0"
+                        "@ let " + name + " = 0"
                     ),
                     SectionType::text
                 );
@@ -479,7 +489,7 @@ namespace Floral { namespace v2 {
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         result,
                         SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "let " + name + ""
+                        "@ let " + name + ""
                     ),
                     SectionType::text
                 );
@@ -499,7 +509,7 @@ namespace Floral { namespace v2 {
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         result,
                         SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "let " + name + ""
+                        "@ let " + name + ""
                     ),
                     SectionType::text
                 );
@@ -606,7 +616,7 @@ namespace Floral { namespace v2 {
         }
 
         // MARK: Emit general expression (COMPLEX)
-        Location Compiler::emitExpression(Expression* expr) {
+        Location Compiler::emitExpression(Expression* expr, bool wantsAddressResult) {
             if (auto binary = dynamic_cast<BinaryExpression*>(expr)) {
                 // assume true binary expression for now
                 Expression* left {binary->left()};
@@ -808,6 +818,16 @@ namespace Floral { namespace v2 {
                         
                         return resultloc;
                     }
+                    case TokenType::dot: {
+                        Location lhsloc = emitExpression(left, true);
+                        auto member = dynamic_cast<SymbolExpression*>(right);
+                        const long offset = left->type->structValue()->offsetOf(member->value().contents);
+                        if IS_RBPOFFSET(lhsloc) lhsloc.offset += offset;
+                        if (wantsAddressResult) return lhsloc;
+                        const Register result = static_cast<Register>(currentFrame().avaliableScratch());
+                        emit(new RawText(INDENT "mov " + RegisterLocation(result).str() + ", " +  lhsloc.str() + " ; member access"), SectionType::text);
+                        return RegisterLocation(result);
+                    }
                     default: {
                         // Unsupported operation
                         assert(false && "Unsupported operation");
@@ -865,8 +885,9 @@ namespace Floral { namespace v2 {
                 if (!result.second) {
                     assert(false && "Static analyzer should catch this");
                 }
-                const Register resultr = static_cast<Register>(frames.back().avaliableScratch());
                 auto loc = result.first.loc;
+                if (wantsAddressResult) return loc;
+                const Register resultr = static_cast<Register>(frames.back().avaliableScratch());
                 emit(new MoveOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
                 return RegisterLocation(resultr);
             }

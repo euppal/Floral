@@ -142,7 +142,7 @@ namespace Floral {
             std::pair<Variable, bool> lookup(const std::string& name);
             
             // Expression related
-            Location emitExpression(Expression* expr);
+            Location emitExpression(Expression* expr, bool wantsAddressResult = false);
             std::pair<long long, std::vector<Register>> emitCallArguments(const std::vector<Expression*>& args);
             Location emitCall(Call* call);
             

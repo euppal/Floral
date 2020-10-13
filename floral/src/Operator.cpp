@@ -15,7 +15,7 @@ namespace Floral {
     Operator::Operator(TokenType type): _type(type) {
         assert(tokenTypeIsOperator(type));
     }
-    Type* Operator::overload(Type *left, Type *right) const {
+    Type* Operator::overload(Type* left, Type* right) const {
         switch (_type) {
             case TokenType::plus: {
                 if (!left && right) return right->isNumber() ? right : nullptr; // +Number (+1, +3.14)

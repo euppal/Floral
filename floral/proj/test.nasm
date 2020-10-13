@@ -1,21 +1,13 @@
 section .text
-global _floralid_test
-_floralid_test:
-  push rbp ; store old frame
-  mov rbp, rsp ; push new frame
-  mov rsp, rbp ; pop this frame
-  pop rbp ; restore old frame
-  ret ; return from function
-
 global _floralid_main
 _floralid_main:
   push rbp ; store old frame
   mov rbp, rsp ; push new frame
   sub rsp, 16 ; allocate space on the stack for local variables
-  mov qword [rbp-8], 2 ; assignment
-  mov qword [rbp-16], 1 ; assignment
-  call _floralid_test ; test(Void)
-  mov rax, [rbp-8] ; member access
+  mov qword [rbp-8], 41 ; var number
+  lea rax, [rbp-8] ; address of
+  mov qword [rax], 42 ; assignment
+  mov rax, [rbp-8] ; store number in rax
   mov rsp, rbp ; pop this frame
   pop rbp ; restore old frame
   ret ; return from function
