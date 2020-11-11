@@ -29,7 +29,7 @@ namespace Floral {
         return (isGlobal ? ("global "  + prefixed(lbl) + '\n') : "") + prefixed(lbl) + ':';
     }
     const std::string Extern::str() const {
-        return "extern " + prefixed(lbl) + '\n';
+        return "extern " + prefixed(lbl) + ADD_COMMENT_IF_EXISTS;
     }
     const std::string Global::str() const {
         return "global " + prefixed(lbl);
@@ -39,16 +39,17 @@ namespace Floral {
             "db", "dw", "dd", "dq"
         };
         
-        return INDENT + prefixed(label) + ": " + sizeTypeNames[static_cast<int>(sizeType)] + join(values, isSigned, ", ");
+        return INDENT + prefixed(label) + ": " + sizeTypeNames[static_cast<int>(sizeType)] + ' ' +  join(values, isSigned, ", ");
     }
     const std::string ZeroData::str() const {
         const static std::string sizeTypeNames[] {
             "resb", "resw", "resd", "resq"
         };
-        return INDENT + prefixed(label) + ": " + sizeTypeNames[static_cast<int>(sizeType)];
+        return INDENT + prefixed(label) + ": " + sizeTypeNames[static_cast<int>(sizeType)] + ' ' + std::to_string(count);
     }
     const std::string StringData::str() const {
-        std::string_view view {'`' + contents};
+        std::string contents { '`' + this->contents };
+        std::string_view view {contents};
         if (strncmp(view.data(), "``, ", 4) == 0) {
             view.remove_prefix(4);
         }
@@ -69,6 +70,9 @@ namespace Floral {
         const static std::string sizeTypeNames[] {
             "byte", "word", "dword", "qword"
         };
+        if ((!src.isDereference && src.offset) || (!src.isDereference && src.isLbl)) {
+            return INDENT "lea " + MOVE_OPSIZE_STR_IF_NECESSARY + dest.str() + ", [" + src.str() + ']' + ADD_COMMENT_IF_EXISTS;
+        }
         return INDENT "mov " + MOVE_OPSIZE_STR_IF_NECESSARY + dest.str() + ", " + src.str() + ADD_COMMENT_IF_EXISTS;
     }
     const std::string LoadAddressOperation::str() const {
@@ -90,10 +94,22 @@ namespace Floral {
         return INDENT "sub " + dest.str() + ", " + src.str() + ADD_COMMENT_IF_EXISTS;
     }
     const std::string AddOperation::str() const {
-        return INDENT "add " + dest.str() + ", " + src.str() + ADD_COMMENT_IF_EXISTS;
+        const static std::string sizeTypeNames[] {
+            "byte", "word", "dword", "qword"
+        };
+        return INDENT "add " + MOVE_OPSIZE_STR_IF_NECESSARY + dest.str() + ", " + src.str() + ADD_COMMENT_IF_EXISTS;
+    }
+    const std::string NotOperation::str() const {
+        return INDENT "not " + dest.str() + ADD_COMMENT_IF_EXISTS;
+    }
+    const std::string OrOperation::str() const {
+        return INDENT "or " + dest.str() + ", " + src.str() + ADD_COMMENT_IF_EXISTS;
     }
     const std::string MulOperation::str() const {
         return INDENT "imul " + dest.str() + ", " + src.str() + ADD_COMMENT_IF_EXISTS;
+    }
+    const std::string DivOperation::str() const {
+        return INDENT "idiv " + src.str() + ADD_COMMENT_IF_EXISTS;
     }
     const std::string Syscall::str() const {
         return INDENT "syscall";
@@ -111,10 +127,20 @@ namespace Floral {
         return INDENT "ret" + ADD_COMMENT_IF_EXISTS;
     }
     const std::string CmpOperation::str() const {
-        return INDENT "cmp " + dest.str() + ", " + src.str() + ADD_COMMENT_IF_EXISTS;
+        const static std::string sizeTypeNames[] {
+            "byte", "word", "dword", "qword"
+        };
+        const static SizeType opsize = SizeType::qword;
+        return INDENT "cmp " + MOVE_OPSIZE_STR_IF_NECESSARY + dest.str() + ", " + src.str() + ADD_COMMENT_IF_EXISTS;
     }
+    const std::string JumpOperation::jtypemap[] {
+        "jmp", "jz", "jnz", "je", "jne", "jle", "jge", "jl", "jg", "ja", "jb", "jo", "jno", "jc", "jnc"
+    };
     const std::string JumpOperation::str() const {
         return INDENT + jtypemap[static_cast<int>(type)] + ' ' + prefixed(lbl) + ADD_COMMENT_IF_EXISTS;
+    }
+    const std::string NegationOperation::str() const {
+        return INDENT "neg " + src.str() + ADD_COMMENT_IF_EXISTS;
     }
 
     const std::string join(const std::vector<Instruction*>& instructions, const std::string& sep, bool spaceOutLabels) {
@@ -122,13 +148,22 @@ namespace Floral {
         bool isFirstLabel = false;
         for (size_t index = 0; index < instructions.size(); index++) {
             const auto instr = instructions[index];
-            if (spaceOutLabels && dynamic_cast<Label*>(instr)) {
+            auto spaceOut = false;
+            if (auto lbl = dynamic_cast<Label*>(instr)) {
+                spaceOut = spaceOutLabels && lbl->isSpaced;
+            }
+            if (spaceOut) {
                 if (!isFirstLabel) isFirstLabel = true;
                 else {
                     result.push_back('\n');
                 }
             }
             result += instr->str();
+            if (dynamic_cast<Extern*>(instr)) {
+                if (index + 1 < instructions.size() && !dynamic_cast<Extern*>(instructions[index + 1])) {
+                    result.push_back('\n');
+                }
+            }
             if (index + 1 < instructions.size()) result += sep;
         }
         return result;

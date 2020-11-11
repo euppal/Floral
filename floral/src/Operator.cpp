@@ -20,17 +20,29 @@ namespace Floral {
             case TokenType::plus: {
                 if (!left && right) return right->isNumber() ? right : nullptr; // +Number (+1, +3.14)
                 if (left && right && left->isPointer() && right->isNumber()) return left;
-                if (left && right) return (left->isNumber() && right->isNumber()) || (left->isString() && right->isString()) ? MOST_CONST(left, right) : nullptr; // Number+Number or String+String (2+3, "h" + "i")
+                if (left && right) return (left->isNumber() && right->isNumber())/* || (left->isString() && right->isString()) */? MOST_CONST(left, right) : nullptr; // Number+Number or String+String (2+3, "h" + "i")
                 return nullptr;
             }
             case TokenType::minus: {
-                if (!left && right) return right->isNumber() ? right : nullptr; // -Number (-1, -3.14)
-                if (left && right) return (left->isNumber() && right->isNumber()) || (left->isPointer() && right->isNumber()) ? MOST_CONST(left, right) : nullptr; // Number-Number (2-3, 5.8-3.2)
+                if (!left && right) return(right->isNumber() && right->isSigned()) ? right : nullptr; // -Number (-1, -3.14)
+                if (left && right) return (left->isPointer() && right->isNumber() ? left : (left->isNumber() && right->isNumber() ? MOST_CONST(left, right) : nullptr)); // Number-Number (2-3, 5.8-3.2)
                 return nullptr;
             }
             case TokenType::multiply: {
-                if (!left && right) return right->isPointer() ? right->_ptrType : nullptr; // *Pointer (*ptr, *null)
-                if (left && right) return (left->isNumber() && right->isNumber()) ? MOST_CONST(left, right) : nullptr; // Number(Number (3*7, 4*0.5)
+                if (!left && right) return right->isPointer() ? GET_PTRTYYPE(right) : nullptr; // *Pointer (*ptr, *null)
+                if (left && right) return (left->isNumber() && right->isNumber()) ? MOST_CONST(left, right) : nullptr; // Number*Number (3*7, 4*0.5)
+                return nullptr;
+            }
+            case TokenType::divide: {
+                if (left && right) return (left->isNumber() && right->isNumber()) ? MOST_CONST(left, right) : nullptr; // Number/Number (3/7, 4/0.5)
+                return nullptr;
+            }
+            case TokenType::plusEqu:
+            case TokenType::minusEq:
+            case TokenType::mulEq:
+            case TokenType::divEq: {
+                if (left && right && left->isPointer() && right->isNumber()) return left;
+                if (left && right) return (left->isNumber() && right->isNumber()) ? MOST_CONST(left, right) : nullptr;
                 return nullptr;
             }
             case TokenType::andOp: {
@@ -57,13 +69,14 @@ namespace Floral {
                     (left->isBool() && right->isBool())
                 ) ? new Type(new Token({ 0, 0 }, TokenType::boolType, "Bool"), CONSTEST(left, right)) : nullptr;
             }
-            case TokenType::notOp: {
-                if (!left && right) return right->isBool() ? new Type(new Token({ 0, 0 }, TokenType::boolType, "Bool"), right->isConst()) : nullptr;
+            case TokenType::notOp:
+            case TokenType::inv: {
+                if (!left && right) return right->isBool() ? new Type(new Token({ 0, 0 }, TokenType::boolType, "Bool"), right->isConst()) : (right->isNumber() ? right : nullptr);
             }
             case TokenType::leftBracket: {
                 if (left && right) return (
                     left->isPointer() && right->isNumber()
-                ) ? left->_ptrType : nullptr;
+                ) ? GET_PTRTYYPE(left) : nullptr;
             }
             default:
                 break;

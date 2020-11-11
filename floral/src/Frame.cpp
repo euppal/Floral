@@ -28,10 +28,13 @@ namespace Floral {
         }
         return minOffset;
     }
+inline int Frame::isAvaliable(const Register reg) {
+        return std::find(registersInUse.begin(), registersInUse.end(), reg) == registersInUse.end();
+    }
     int Frame::avaliableScratch() {
         for (int r{}; r < static_cast<int>(Register::r15); r++) {
             const Register reg {static_cast<Register>(r)};
-            if (std::find(registersInUse.begin(), registersInUse.end(), reg) == registersInUse.end() && isScratch(reg)) {
+            if (isAvaliable(reg) && isScratch(reg)) {
                 registersInUse.push_back(reg);
                 return r;
             }
@@ -65,7 +68,4 @@ namespace Floral {
         
         return result;
     }
-
-
-
 }

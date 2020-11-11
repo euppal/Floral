@@ -27,9 +27,9 @@ ColoredStream& operator <<(ColoredStream& stream, Color color) {
     }
     
     if (value >= 30 && value <= 37) stream.foreground = value;
-        else if (value >= 40 && value <= 47) stream.background = value;
+    else if (value >= 40 && value <= 47) stream.background = value;
             
-            return stream;
+    return stream;
 }
 
 ColoredStream& operator <<(ColoredStream& stream, const std::string& str) {

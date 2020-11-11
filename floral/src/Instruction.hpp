@@ -23,10 +23,16 @@ constexpr bool NO_COMMENTS = false;
 #define ADD_COMMENT_IF_EXISTS ((NO_COMMENTS || comment.empty()) ? "" : (" ; " + comment))
 #define OPSIZE_FROM_NUM(n) ((n) == 1 ? SizeType::byte : ((n) == 2 ? SizeType::word : ((n) == 4 ? SizeType::dword : SizeType::qword)))
 #define MOVE_OPSIZE_STR_IF_NECESSARY (((src.isLiteral && dest.isDereference) ? sizeTypeNames[static_cast<int>(opsize)] + ' ' : ""))
-#define IS_RBPOFFSET(loc) ((loc).reg == static_cast<int>(Register::rbp) && (loc).isDereference)
+#define IS_RBPOFFSET(loc) ((loc).reg == static_cast<int>(Register::rbp))
 #define IS_REG(loc) ((loc).reg != LOC_IS_NOT_REG && !(loc).isDereference && !(loc).offset)
+#define IS_AREG(loc) ((loc).reg != LOC_IS_NOT_REG)
 #define ARE_BOTH_LIT(leftop, rightop) ((leftop)->src.isLiteral && (rightop)->src.isLiteral)
 #define NO_OPTM(op) (!(op)->comment.empty() && (op)->comment.front() == '@')
+#define ZeroLL NumLL(false, SU(0ULL))
+#define OneLL NumLL(false, SU(1ULL))
+#define FalseLL ZeroLL
+#define TrueLL OneLL
+
 namespace Floral {
     const std::string join(const std::vector<std::string>& vector, const std::string& sep);
 
@@ -59,19 +65,21 @@ namespace Floral {
         const std::string str() const override;
     };
     struct Label: public Instruction {
-        Label(const std::string& _lbl, bool _isGlobal): lbl(_lbl), isGlobal(_isGlobal) {}
+        Label(const std::string& _lbl, bool _isGlobal, bool _isSpaced = true): lbl(_lbl), isGlobal(_isGlobal), isSpaced(_isSpaced) {}
         ~Label() override {}
         
         std::string lbl;
         bool isGlobal;
+        bool isSpaced;
                 
         const std::string str() const override;
     };
     struct Extern: public Instruction {
-        Extern(const std::string& _lbl): lbl(_lbl) {}
+        Extern(const std::string& _lbl, const std::string& _comment = ""): lbl(_lbl), comment(_comment) {}
         ~Extern() override {}
         
         std::string lbl;
+        std::string comment;
         
         const std::string str() const override;
     };
@@ -108,11 +116,12 @@ namespace Floral {
     const std::string join(const std::vector<union SignedUnsigned>& data, bool isSigned, const std::string& sep);
 
     struct ZeroData: public Instruction {
-        ZeroData(const std::string& _label, SizeType _sizeType): label(_label), sizeType(_sizeType) {}
+        ZeroData(const std::string& _label, SizeType _sizeType, size_t _count): label(_label), sizeType(_sizeType), count(_count) {}
         ~ZeroData() override {}
         
         std::string label;
         SizeType sizeType;
+        size_t count;
         
         const std::string str() const override;
     };
@@ -190,11 +199,12 @@ namespace Floral {
         const std::string str() const override;
     };
     struct AddOperation: public Operation {
-        AddOperation(Location _dest, Location _src, const std::string& _comment = ""): src(_src), dest(_dest), comment(_comment) {}
+        AddOperation(Location _dest, Location _src, SizeType _opsize = SizeType::qword, const std::string& _comment = ""): src(_src), dest(_dest), opsize(_opsize), comment(_comment) {}
         ~AddOperation() override {}
         
         Location src;
         Location dest;
+        SizeType opsize;
         std::string comment;
         
         const std::string str() const override;
@@ -234,6 +244,15 @@ namespace Floral {
         ~OrOperation() override {}
         
         Location src;
+        Location dest;
+        std::string comment;
+        
+        const std::string str() const override;
+    };
+    struct NotOperation: public Operation {
+        NotOperation(Location _dest, const std::string& _comment = ""): dest(_dest), comment(_comment) {}
+        ~NotOperation() override {}
+        
         Location dest;
         std::string comment;
         
@@ -319,20 +338,40 @@ namespace Floral {
         
         const std::string str() const override;
     };
+    enum class Condition {
+        normal,
+        zero,
+        nonzero,
+        equal,
+        unequal,
+        lessEqual,
+        greaterEqual,
+        less,
+        greater,
+        above,
+        below,
+        overflow,
+        noOverflow,
+        carry,
+        noCarry
+    };
     struct JumpOperation: public Operation {
-        enum class JType {
-            normal,
-            zero,
-            nonzero
-        };
-        const std::string jtypemap[3] {
-            "jmp", "jz", "jnz"
-        };
+        typedef Condition JType;
+        static const std::string jtypemap[15];
         JumpOperation(JType _type, std::string _lbl, const std::string& _comment = ""): type(_type), lbl(_lbl), comment(_comment) {}
         ~JumpOperation() override {}
         
         JType type;
         std::string lbl;
+        std::string comment;
+        
+        const std::string str() const override;
+    };
+    struct NegationOperation: public Operation {
+        NegationOperation(Location _src, const std::string& _comment = ""): src(_src), comment(_comment) {}
+        ~NegationOperation() override {}
+        
+        Location src;
         std::string comment;
         
         const std::string str() const override;

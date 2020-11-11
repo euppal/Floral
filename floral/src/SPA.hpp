@@ -24,6 +24,7 @@ namespace Floral {
         void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
         
         std::string _path;
+        int _warnUninit = true;
         
         std::string strFromFunctionSignature(FunctionSignature funsig);
         Type* localLookupType(const std::string& id);
@@ -43,7 +44,7 @@ namespace Floral {
         int analyze(Expression* expr);
         Type* type(Expression* expr);
         bool isStaticEval(Expression* expr);
-        bool functionExists(const std::string& name, const Function::Parameters& params);
+        Declaration* lookupFunction(const std::string& name, const Function::Parameters& params);
         Type* lookupRType(const std::string& name, const Function::Parameters& params);
         
         std::vector<Expression*> _typeTrace;
@@ -59,7 +60,6 @@ namespace Floral {
         
         GlobalDeclaration* lookupGlobal(std::string symbol);
         GlobalForwardDeclaration* lookupGlobalDecl(std::string symbol);
-        Function* lookupFunc(std::string symbol);
         
         void reset(void);
     };

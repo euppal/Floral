@@ -57,13 +57,13 @@ namespace Floral {
 
     int StaticAnalyzer::analyze(const File *file) {
         _path = file->path();
-        scopes.push_back({});
+        pushScope();
         for (auto node: file->nodes()) {
             if (auto decl = dynamic_cast<Declaration*>(node))
                 if (analyze(decl) != 0) return 1;
         }
         if (analyze(file->main()) != 0) return 1;
-        scopes.pop_back();
+        popScope();
         return 0;
     }
     int StaticAnalyzer::analyze(Statement* stm) {
@@ -106,7 +106,7 @@ namespace Floral {
                 );
                 return 1;
             }
-            if (ptrAssignStm->ptrExpr()->type->_ptrType->isConst()) {
+            if (GET_PTRTYYPE(ptrAssignStm->ptrExpr()->type)->isConst()) {
                 report(
                        Error::typeDomain,
                        "Cannot assign to const value",
@@ -116,7 +116,7 @@ namespace Floral {
                 );
                 return 1;
             }
-            if (!(*ptrAssignStm->ptrExpr()->type->_ptrType == *ptrAssignStm->newValue()->type)) {
+            if (!(*GET_PTRTYYPE(ptrAssignStm->ptrExpr()->type) == *ptrAssignStm->newValue()->type)) {
                 report(
                        Error::typeDomain,
                        "Cannot assign value of type " + ptrAssignStm->newValue()->type->des() + " to pointer to value of type " + ptrAssignStm->ptrExpr()->type->_ptrType->des(),
@@ -126,8 +126,8 @@ namespace Floral {
                 return 1;
             }
         } else if (auto assignStm = dynamic_cast<Assignment*>(stm)) {
-            analyze(assignStm->lval());
-            analyze(assignStm->rval());
+            if (analyze(assignStm->lval()) != 0) return 1;
+            if (analyze(assignStm->rval()) != 0) return 1;
             if (assignStm->lval()->type->isConst()) {
                 report(
                        Error::typeDomain,
@@ -149,10 +149,10 @@ namespace Floral {
             }
         } else if (auto ifStm = dynamic_cast<IfStatement*>(stm)) {
             if (analyze(ifStm->condition()) != 0) return 1;
-            if (!ifStm->condition()->type->isBool()) {
+            if (!(ifStm->condition()->type->isBool() || ifStm->condition()->type->isPointer())) {
                 report(
                        Error::typeDomain,
-                       "If statement condition does not resolve to boolean",
+                       "If statement condition does not resolve to boolean (Cannot convert value of type " + ifStm->condition()->type->des() + " to Bool)",
                        ifStm->_loc,
                        { ifStm->condition()->_loc.pos, 0 }
                 );
@@ -205,7 +205,7 @@ namespace Floral {
                                return 1;
                            }
                            initexpr->type->_setConst(true);
-                           const Type* declaredType {let->type()};
+                           Type* declaredType {const_cast<Type*>(let->type())};
                            if (!declaredType->isIncomplete()) {
                                if (!(*declaredType == *initexpr->type)) {
                                    if (declaredType->isUInt() && initexpr->type->isInt()) {
@@ -213,11 +213,15 @@ namespace Floral {
                                    } else {
                                        report(
                                               Error::typeDomain,
-                                              "Expression resolves to type different from type declared in let declaration",
+                                              "Expression resolves to type different from type declared in let statement",
                                               let->_loc,
                                               { let->_loc.pos, 0 }
                                        );
                                    }
+                               } else {
+                                   declaredType->_setConst(true);
+                                   initexpr->type = declaredType;
+                                   let->setType(declaredType);
                                }
                            } else {
                                let->setType(initexpr->type);
@@ -233,7 +237,6 @@ namespace Floral {
                            }
                            scope().insert(let->name().contents, const_cast<Type*>(let->type()), initexpr);
                            break;
-                           break;
                        }
                        case Initializer::copy: {
                            auto initexpr {dynamic_cast<const CopyInitializer*>(init)->expr()};
@@ -241,7 +244,7 @@ namespace Floral {
                                return 1;
                            }
                            initexpr->type->_setConst(true);
-                           const Type* declaredType {let->type()};
+                           Type* declaredType {const_cast<Type*>(let->type())};
                            if (!declaredType->isIncomplete()) {
                                if (!(*declaredType == *initexpr->type)) {
                                    if (declaredType->isUInt() && initexpr->type->isInt()) {
@@ -254,6 +257,10 @@ namespace Floral {
                                               { let->_loc.pos, 0 }
                                        );
                                    }
+                               } else {
+                                    declaredType->_setConst(true);
+                                    initexpr->type = declaredType;
+                                    let->setType(declaredType);
                                }
                            } else {
                                let->setType(initexpr->type);
@@ -274,8 +281,8 @@ namespace Floral {
                } else if (auto var = dynamic_cast<VarStatement*>(stm)) {
                    const Initializer* init = var->initializer();
                    if (!init) {
-                       warn(
-                            "Variable is unitialized",
+                       if (_warnUninit) warn(
+                            "Variable is uninitialized",
                             var->_loc,
                             { var->_loc.pos + var->_loc.length - 1, 0 },
                             "Initialize the variable to silence this warning"
@@ -352,8 +359,8 @@ namespace Floral {
                                        report(
                                               Error::typeDomain,
                                               "Expression resolves to type different from type declared in let declaration",
-                                              let->_loc,
-                                              { let->_loc.pos, 0 }
+                                              var->_loc,
+                                              { var->_loc.pos, 0 }
                                        );
                                    }
                                }
@@ -377,24 +384,58 @@ namespace Floral {
         return 0;
     }
 
-    bool StaticAnalyzer::functionExists(const std::string& name, const Function::Parameters& params) {
-        const std::string key {strFromFunctionSignature({name, params})};
-        return functionSymbolTable.find(key) != functionSymbolTable.end() || functionForwardDeclSymbolTable.find(key) != functionForwardDeclSymbolTable.end();
+    Declaration* StaticAnalyzer::lookupFunction(const std::string& name, const Function::Parameters& params) {
+        for (auto [sigkey, func]: functionSymbolTable) {
+            if (func->arity() == params.size() && func->name().contents == name) {
+                size_t i = func->arity();
+                while (i) {
+                    auto declaredType = func->parameters()[i - 1].type;
+                    auto providedType = params[i - 1].type;
+                    if (!(*declaredType == *providedType) || (
+                        (declaredType->isPointer() ? (!GET_PTRTYYPE(declaredType)->isConst() ? GET_PTRTYYPE(providedType)->isConst() : false) : false)
+                    )) {
+                        break;
+                    }
+                    --i;
+                }
+                if (!i) return func;
+            }
+        }
+        for (auto [sigkey, ffunc]: functionForwardDeclSymbolTable) {
+            if (ffunc->arity() == params.size() && ffunc->name().contents == name) {
+                size_t i = ffunc->arity();
+                while (i) {
+                    auto declaredType = ffunc->parameters()[i - 1].type;
+                    auto providedType = params[i - 1].type;
+                    if (!(*declaredType == *providedType) || (
+                        (declaredType->isPointer() && !GET_PTRTYYPE(declaredType)->isConst()) ? GET_PTRTYYPE(providedType)->isConst() : false
+                    )) {
+                        break;
+                    }
+                    --i;
+                }
+                if (!i) return ffunc;
+                
+            }
+        }
+        return nullptr;
     }
     Type* StaticAnalyzer::lookupRType(const std::string& name, const Function::Parameters& params) {
-        const std::string key {strFromFunctionSignature({name, params})};
-        if (functionSymbolTable.find(key) != functionSymbolTable.end())
-            return const_cast<Type*>(functionSymbolTable[key]->returnType());
-        else if (functionForwardDeclSymbolTable.find(key) != functionForwardDeclSymbolTable.end())
-            return const_cast<Type*>(functionForwardDeclSymbolTable[key]->returnType());
-        else return nullptr;
+        if (auto decl = lookupFunction(name, params)) {
+            if (auto func = dynamic_cast<Function*>(decl)) {
+                return const_cast<Type*>(func->returnType());
+            } else if (auto ffunc = dynamic_cast<FunctionForwardDeclaration*>(decl)) {
+                return const_cast<Type*>(ffunc->returnType());
+            }
+        }
+        return nullptr;
     }
 
     int StaticAnalyzer::analyze(Declaration *decl) {
         if (auto func = dynamic_cast<Function*>(decl)) {
             pushScope();
             scope().func = func;
-            if (functionExists(func->name().contents, func->parameters())) {
+            if (lookupFunction(func->name().contents, func->parameters())) {
                 report(
                        Error::resolutionDomain,
                        "Invalid redeclaration of '" + func->name().contents + "'",
@@ -424,6 +465,8 @@ namespace Floral {
                         func->staticAllocationSize += var->type()->alignment();
                     } else if (auto block = dynamic_cast<Block*>(stm)) {
                         func->staticAllocationSize += block->size();
+                    } else if (auto forStm = dynamic_cast<ForStatement*>(stm)) {
+                        func->staticAllocationSize += forStm->size();
                     }
                 } else if (auto decl = dynamic_cast<Declaration*>(node)) {
                     if (analyze(decl) != 0) return 1;
@@ -431,7 +474,7 @@ namespace Floral {
             }
             popScope();
         } else if (auto ffunc = dynamic_cast<FunctionForwardDeclaration*>(decl)) {
-            if (functionExists(ffunc->name().contents, ffunc->parameters())) {
+            if (lookupFunction(ffunc->name().contents, ffunc->parameters())) {
                 report(
                        Error::resolutionDomain,
                        "Invalid redeclaration of '" + ffunc->name().contents + "'",
@@ -461,9 +504,13 @@ namespace Floral {
             if (initializer->type == Initializer::zero) {
                 gbl->info.isStaticEval = true;
             } else if (auto direct = dynamic_cast<const DirectInitializer*>(initializer)) {
-                gbl->info.isStaticEval = isStaticEval(direct->expr());
                 auto initexpr = direct->expr();
+                gbl->info.isStaticEval = isStaticEval(initexpr);
                 if (analyze(initexpr) != 0) return 1;
+                if (!gbl->info.isStaticEval) {
+                    report(Error::compileDomain, "Global constant expression could not be statically evaluated", gbl->_loc, { initexpr->_loc.pos, initexpr->_loc.length });
+                    return 1;
+                }
                 Type* declaredType { gbl->type };
                 if (!declaredType->isIncomplete()) {
                     if (!(*declaredType == *initexpr->type)) {
@@ -481,27 +528,30 @@ namespace Floral {
                 } else {
                     gbl->type = initexpr->type;
                 }
+                scope().insert(gbl->name.contents, gbl->type, initexpr);
             } else if (auto copy = dynamic_cast<const CopyInitializer*>(initializer)) {
-                gbl->info.isStaticEval = isStaticEval(copy->expr());
                 auto initexpr = copy->expr();
+                gbl->info.isStaticEval = isStaticEval(initexpr);
+                if (analyze(initexpr) != 0) return 1;
+                if (!gbl->info.isStaticEval) {
+                    report(Error::compileDomain, "Global constant expression could not be statically evaluated", gbl->_loc, { initexpr->_loc.pos, initexpr->_loc.length });
+                    return 1;
+                }
                 if (analyze(initexpr) != 0) return 1;
                 Type* declaredType { gbl->type };
                 if (!declaredType->isIncomplete()) {
                     if (!(*declaredType == *initexpr->type)) {
-                        if (declaredType->isUInt() && initexpr->type->isInt()) {
-                            
-                        } else {
-                            report(
-                                   Error::typeDomain,
-                                   "Expression resolves to type different from type declared in global declaration",
-                                   gbl->_loc,
-                                   { initexpr->_loc.pos, 0 }
-                            );
-                        }
+                        report(
+                               Error::typeDomain,
+                               "Expression resolves to type different from type declared in global declaration",
+                               gbl->_loc,
+                               { initexpr->_loc.pos, 0 }
+                        );
                     }
                 } else {
                     gbl->type = initexpr->type;
                 }
+                scope().insert(gbl->name.contents, gbl->type, initexpr);
             }
         } else if (auto fgbl = dynamic_cast<GlobalForwardDeclaration*>(decl)) {
             if (globalSymbolTable[fgbl->name().contents]) {
@@ -515,11 +565,41 @@ namespace Floral {
             } else {
                 globalForwardDeclSymbolTable[fgbl->name().contents] = fgbl;
             }
+        } else if (auto structdecl = dynamic_cast<StructDeclaration*>(decl)) {
+            pushScope();
+            scope().insert("this", new Type(new Type(0, structdecl->name().contents), true, true), new SymbolExpression({ structdecl->name(), structdecl->name() }, { structdecl->name().loc, TokenType::identifier, "this" }));
+            _warnUninit = false;
+            for (auto &stm: structdecl->dataMembers()) {
+                if (analyze(stm) != 0) return 1;
+            }
+            _warnUninit = true;
+            for (auto &func: structdecl->functionMembers()) {
+                if (analyze(func) != 0) return 1;
+            }
+            for (auto constr: structdecl->constructors()) {
+                pushScope();
+                for (auto param: constr->params) {
+                    scope().insert(param.name.contents, param.type, nullptr);
+                }
+                for (auto init: constr->inits) {
+                    if (analyze(init.second) != 0) return 1;
+                }
+                if (analyze(constr->after) != 0) return 1;
+                popScope();
+            }
+            popScope();
+        } else if (auto nmspace = dynamic_cast<NamespaceDeclaration*>(decl)) {
+            for (auto node: nmspace->nodes()) {
+                if (auto decl = dynamic_cast<Declaration*>(node)) {
+                    if (analyze(decl) != 0) return 1;
+                }
+            }
         }
         return 0;
     }
 
     int StaticAnalyzer::analyze(Expression* expr) {
+        expr->info.isStaticEval = isStaticEval(expr);
         expr->type = type(expr); // get the type
         _typeTrace.push_back(expr);
         if (!expr->type) {
@@ -548,6 +628,9 @@ namespace Floral {
 //                    }
 //                }
                 expr->type->print();
+                if (expr->info.isStaticEval) {
+                    std::cout << " [constexpr]";
+                }
                 std::cout << '\n';
             } else {
                 std::cout << "Invalid\n";
@@ -580,6 +663,7 @@ namespace Floral {
             
             if (optkntype == TokenType::dot) {
                 auto member = dynamic_cast<SymbolExpression*>(binaryExpression->right());
+                auto call = dynamic_cast<Call*>(binaryExpression->right());
                 if (leftType->isStruct() && member) {
                     auto structType = leftType->structValue();
                     auto iter = std::find_if(structType->dataMembers().begin(), structType->dataMembers().end(), [member](Statement* s) -> bool {
@@ -592,6 +676,20 @@ namespace Floral {
                         if (auto var = dynamic_cast<VarStatement*>(*iter)) {
                             return var->type();
                         }
+                    } else {
+                        return nullptr;
+                    }
+                } else if (leftType->isStruct() && call) {
+                    for (auto arg: call->args) {
+                        analyze(arg);
+                    }
+                    auto structType = leftType->structValue();
+                    auto iter = std::find_if(structType->functionMembers().begin(), structType->functionMembers().end(), [call](Function* func) -> bool {
+                        return call->name.contents == func->name().contents;
+                    });
+                    if (iter != structType->functionMembers().end()) {
+                        call->_spa_params = (*iter)->parameters();
+                        return const_cast<Type*>((*iter)->returnType());
                     } else {
                         return nullptr;
                     }
@@ -623,53 +721,54 @@ namespace Floral {
                 return nullptr;
             }
         } else if (Literal* literal = dynamic_cast<Literal*>(expr)) {
-            // MARK: BADLY BROKEN
             switch (literal->type()) {
                 case Literal::LType::boolean: {
                     return new Type(new Token({0,0}, TokenType::boolType, "Bool"), true);
                 }
                 case Literal::LType::decimalInteger:
                 case Literal::LType::hexadecimalInteger: {
-                    return new Type(new Token({0,0}, TokenType::int64Type, "Int"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::int64Type, "Int"), true);
                 }
                 case Literal::LType::decimalByte: {
-                    return new Type(new Token({0,0}, TokenType::charType, "Char"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::charType, "Char"), true);
                 }
                 case Literal::LType::decimalWideChar: {
-                    return new Type(new Token({0,0}, TokenType::wideCharType, "WideChar"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::wideCharType, "WideChar"), true);
                 }
                 case Literal::LType::decimalShort: {
-                    return new Type(new Token({0,0}, TokenType::shortType, "Short"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::shortType, "Short"), true);
                 }
                 case Literal::LType::decimalInt32: {
-                    return new Type(new Token({0,0}, TokenType::int32Type, "Int32"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::int32Type, "Int32"), true);
                 }
                 case Literal::LType::decimalUInteger: {
-                    return new Type(new Token({0,0}, TokenType::uint64Type, "UInt"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::uint64Type, "UInt"), true);
                 }
                 case Literal::LType::decimalUByte: {
-                    return new Type(new Token({0,0}, TokenType::ucharType, "UChar"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::ucharType, "UChar"), true);
                 }
                 case Literal::LType::decimalWideUChar: {
-                    return new Type(new Token({0,0}, TokenType::wideUCharType, "WideUChar"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::wideUCharType, "WideUChar"), true);
                 }
                 case Literal::LType::decimalUShort: {
-                    return new Type(new Token({0,0}, TokenType::ushortType, "UShort"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::ushortType, "UShort"), true);
                 }
                 case Literal::LType::decimalUInt32: {
-                    return new Type(new Token({0,0}, TokenType::uint32Type, "UInt32"), true); // MARK: NOOOO IT CAN BE ANY INTEGER LITERAL TYPEEEEEE
+                    return new Type(new Token({0,0}, TokenType::uint32Type, "UInt32"), true);
                 }
                 case Literal::LType::cString: {
-                    return new Type(new Type(new Token({0,0}, TokenType::charType, "Char")), true, true);
+                    return new Type(new Type(new Token({0,0}, TokenType::charType, "Char"), true), literal->value().contents.size() + 1, true);
+                }
+                case Literal::LType::wideString: {
+                    return new Type(new Type(new Token({0,0}, TokenType::wideCharType, "WideChar"), true), literal->value()._wstr.size() + 1, true);
                 }
                 default:
                     break;
             }
         } else if (SymbolExpression* symbol = dynamic_cast<SymbolExpression*>(expr)) {
-            // MARK: BADDDDDD ONLY LOOKS IN THIS SCOPE ADD FUNCTION THAT LOOKS IN ALLLLLLL!!!!!!
             Type* type = localLookupType(symbol->value().contents);
             if (!type) {
-                type = lookupGlobal(symbol->value().contents)->type;
+                if (auto gbl = lookupGlobal(symbol->value().contents)) type = gbl->type;
                 if (!type) {
                     report(
                            Error::resolutionDomain,
@@ -701,12 +800,11 @@ namespace Floral {
                        call->_loc,
                        { call->_loc.pos, 0 },
                        "Try forward-declaring or defining the function silence this error"
-
                 );
             }
             return r;
         } else if (SizeOfType* sizeofexpr = dynamic_cast<SizeOfType*>(expr)) {
-            return new Type(new Token({0,0}, TokenType::uint64Type, "UInt"), true);
+            return new Type(new Token({0,0}, TokenType::int64Type, "Int"), true);
         } else if (UnsafeCast* unsafecast = dynamic_cast<UnsafeCast*>(expr)) {
             analyze(unsafecast->expr());
             if (unsafecast->expr()->type->size() != unsafecast->type()->size()) {
@@ -721,6 +819,20 @@ namespace Floral {
             }
             unsafecast->expr()->type = unsafecast->type();
             return unsafecast->type();
+        } else if (auto constructor = dynamic_cast<ConstructExpression*>(expr)) {
+            return constructor->type();
+        } else if (auto arraylit = dynamic_cast<ArrayLiteralExpression*>(expr)) {
+            if (arraylit->values().empty()) return nullptr;
+            if (analyze(arraylit->values().front()) != 0) return nullptr;
+            Type* t = arraylit->values().front()->type;
+            for (auto val: arraylit->values()) {
+                if (analyze(val) != 0) return nullptr;
+                if (!(*t == *val->type)) {
+                    report(Error::typeDomain, "Mismatching element types in array literal", arraylit->_loc, { val->_loc.pos, 0 });
+                    return nullptr;
+                }
+            }
+            return new Type(t, arraylit->values().size());
         }
         return nullptr;
     }
@@ -730,7 +842,10 @@ namespace Floral {
             return true;
         }
         if (BinaryExpression* binaryExpression = dynamic_cast<BinaryExpression*>(expr)) {
-            binaryExpression->info.isStaticEval = isStaticEval(binaryExpression->left()) && isStaticEval(binaryExpression->right());
+            const bool lhsIsSE = (!binaryExpression->left() ? true : (binaryExpression->left()->info.isStaticEval = isStaticEval(binaryExpression->left())));
+            const bool rhsIsSE = (!binaryExpression->right() ? true : (binaryExpression->right()->info.isStaticEval = isStaticEval(binaryExpression->right())));
+            binaryExpression->info.isStaticEval = lhsIsSE && rhsIsSE;
+            return binaryExpression->info.isStaticEval;
         } else if (auto literal = dynamic_cast<Literal*>(expr)) {
             expr->info.isStaticEval = true;
             literal->info.isStaticEval = true;
@@ -744,9 +859,9 @@ namespace Floral {
             return true;
         } else if (auto symbol = dynamic_cast<SymbolExpression*>(expr)) {
             const std::string name { symbol->value().contents };
-            if (auto gbl = globalSymbolTable[name]) {
-                symbol->info.isStaticEval = gbl->info.isStaticEval;
-                return symbol->info.isStaticEval;
+            if (globalSymbolTable.find(name) != globalSymbolTable.end()) {
+                symbol->info.isStaticEval = true;
+                return true;
             }
             if (auto fgbl = globalForwardDeclSymbolTable[name]) {
                 fgbl->info.isStaticEval = true;
@@ -756,6 +871,22 @@ namespace Floral {
                 return isStaticEval(initexpr);
             }
             return false;
+        } else if (auto cast = dynamic_cast<UnsafeCast*>(expr)) {
+            bool isSE = isStaticEval(cast->expr());
+            cast->info.isStaticEval = isSE;
+            return isSE;
+        } else if (auto constructor = dynamic_cast<ConstructExpression*>(expr)) {
+            return false;
+        } else if (auto arraylit = dynamic_cast<ArrayLiteralExpression*>(expr)) {
+            for (auto elem: arraylit->values()) {
+                elem->info.isStaticEval = isStaticEval(elem);
+                if (!elem->info.isStaticEval) {
+                    arraylit->info.isStaticEval = false;
+                    return false;
+                }
+            }
+            arraylit->info.isStaticEval = true;
+            return true;
         }
         return false;
     }

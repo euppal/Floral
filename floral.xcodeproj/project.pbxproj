@@ -73,6 +73,7 @@
 		581C5FCA250007B900DEE9F6 /* driver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = driver.cpp; sourceTree = "<group>"; };
 		581C5FCC2501654900DEE9F6 /* Instruction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Instruction.cpp; sourceTree = "<group>"; };
 		581C5FCD2501654900DEE9F6 /* Instruction.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Instruction.hpp; sourceTree = "<group>"; };
+		581CAEF9253A2D64005235EE /* floral_cdef.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floral_cdef.h; sourceTree = "<group>"; };
 		5855A60E2530C96800704F70 /* helper.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = helper.cpp; sourceTree = "<group>"; };
 		5855A6112530D46000704F70 /* Introduction.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Introduction.md; sourceTree = "<group>"; };
 		5855A6122530D5B500704F70 /* Hello World.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Hello World.md"; sourceTree = "<group>"; };
@@ -82,6 +83,8 @@
 		5860F5E524FB1AE700E3FE47 /* driver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = driver.hpp; sourceTree = "<group>"; };
 		58626E2E24C7630400564C58 /* SPA.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SPA.cpp; sourceTree = "<group>"; };
 		58626E2F24C7630400564C58 /* SPA.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SPA.hpp; sourceTree = "<group>"; };
+		586E1E4C255B6AA000D251DD /* Name Mangling.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Name Mangling.md"; sourceTree = "<group>"; };
+		586E1E4D255B6AA000D251DD /* Auto Pointers.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Auto Pointers.md"; sourceTree = "<group>"; };
 		5878994A252E1A44000297CF /* hello.floral */ = {isa = PBXFileReference; lastKnownFileType = text; path = hello.floral; sourceTree = "<group>"; };
 		587D162524A9306100D20ED2 /* floralc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = floralc; sourceTree = BUILT_PRODUCTS_DIR; };
 		587D6CE8250969B900CD0E40 /* Compiler v2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "Compiler v2.cpp"; sourceTree = "<group>"; };
@@ -138,6 +141,8 @@
 				581C5FA324FC1C5E00DEE9F6 /* Built-in Types.md */,
 				581C5FA424FC1C5E00DEE9F6 /* Syntax.bnf */,
 				581C5FA524FC1C5E00DEE9F6 /* Global, Variable and Constant Initialization.md */,
+				586E1E4D255B6AA000D251DD /* Auto Pointers.md */,
+				586E1E4C255B6AA000D251DD /* Name Mangling.md */,
 				581C5FA624FC1C5E00DEE9F6 /* The Using Directive.md */,
 				581C5FA724FC1C5E00DEE9F6 /* String.md */,
 				581C5FA824FC1C5E00DEE9F6 /* The Floral Compiler.md */,
@@ -148,6 +153,14 @@
 				581C5FAE24FC1C5E00DEE9F6 /* Start.md */,
 			);
 			path = docs;
+			sourceTree = "<group>";
+		};
+		581CAEF8253A2D64005235EE /* extern */ = {
+			isa = PBXGroup;
+			children = (
+				581CAEF9253A2D64005235EE /* floral_cdef.h */,
+			);
+			path = extern;
 			sourceTree = "<group>";
 		};
 		5832F39E2513A7E60010F880 /* depr */ = {
@@ -199,6 +212,7 @@
 				5894DF8724BE3EDB000C8E05 /* Sources.hpp */,
 				5855A6102530D44300704F70 /* tutorial */,
 				581C5F9D24FC1C5E00DEE9F6 /* docs */,
+				581CAEF8253A2D64005235EE /* extern */,
 				5894DF8924BE3EDB000C8E05 /* src */,
 				5894DF8324BE3EDB000C8E05 /* proj */,
 			);
@@ -474,6 +488,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = P9333ASGZ6;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -492,6 +507,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = P9333ASGZ6;
 				ENABLE_HARDENED_RUNTIME = YES;

@@ -14,7 +14,7 @@ namespace Floral {
         Token::invalid = new Token({0, 0}, TokenType::invalid, "");
     }
     void _free() {
-        if (Token::invalid) delete Token::invalid;
+        if (Token::invalid) dealloc(Token::invalid);
     }
 }
 

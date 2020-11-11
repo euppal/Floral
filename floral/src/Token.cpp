@@ -13,6 +13,7 @@
 
 namespace Floral {
     Token::Token(TokenLoc loc, TokenType type, const std::string& contents): loc(loc), type(type), contents(contents) {}
+    Token::Token(TokenLoc loc, TokenType type, const std::string& contents, const std::vector<FloralWideChar>& _wstr): loc(loc), type(type), contents(contents), _wstr(_wstr) {}
     std::string tokenTypeDescription(TokenType type) {
         return tokenTypeStrings[static_cast<int>(type)];
     }
@@ -37,13 +38,15 @@ namespace Floral {
         return loc.line;
     }
     bool Token::isLiteral() const {
-        return type == TokenType::boolTrue || type == TokenType::boolFalse || type == TokenType::simpleString ||
-        type == TokenType::numIntDec || type == TokenType::numUIntDec ||
-        type == TokenType::numByteDec || type == TokenType::numUByteDec ||
-        type == TokenType::numWideChar || type == TokenType::numWideUChar ||
-        type == TokenType::numShortDec || type == TokenType::numUShortDec ||
-        type == TokenType::numInt32Dec || type == TokenType::numUInt32Dec ||
-        type == TokenType::numIntHex || type == TokenType::numFloating;
+        return
+            type == TokenType::boolTrue || type == TokenType::boolFalse ||
+            type == TokenType::asciiString || type == TokenType::wideString ||
+            type == TokenType::numIntDec || type == TokenType::numUIntDec ||
+            type == TokenType::numByteDec || type == TokenType::numUByteDec ||
+            type == TokenType::numWideChar || type == TokenType::numWideUChar ||
+            type == TokenType::numShortDec || type == TokenType::numUShortDec ||
+            type == TokenType::numInt32Dec || type == TokenType::numUInt32Dec ||
+            type == TokenType::numIntHex || type == TokenType::numFloating;
     }
     bool Token::isOperator() const {
         return tokenTypeIsOperator(type);
@@ -55,7 +58,10 @@ namespace Floral {
                 type == TokenType::dot || type == TokenType::arrow;
     }
     bool Token::isDeclarator() const {
-        return type == TokenType::func || type == TokenType::global || type == TokenType::struct_;
+        return tokenTypeIsDeclarator(type);
+    }
+    inline bool tokenTypeIsDeclarator(TokenType type) {
+        return type == TokenType::func || type == TokenType::global || type == TokenType::struct_ || type == TokenType::typealias || type == TokenType::namespace_;
     }
     bool Token::isType() const {
         auto intType { static_cast<int>(type) };

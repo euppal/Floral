@@ -1,5 +1,11 @@
-_["Floral project attributes file"]
+! Floral project attributes file
 
-In{"main.floral"}
-Out["main"]
-Flags{"-O"}
+Folder:  "proj/src";
+Target:  "proj/out";
+Ignore:  ".h";
+Ignore:  "floral-header";
+
+! Other
+
+Build:   "Debug";
+Version: "1.0.0";

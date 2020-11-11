@@ -1,11 +1,7 @@
-struct ComplexInt {
-    var real: Int;
-    var imag: Int;
-};
+#include <io.fh>
 
 func main(): Int {
-    var complex: struct ComplexInt;
-    complex.real = 2;
-    complex.imag = 1;
-    return complex.real;
+    std::buffered_print("Hey\n");
+    std::flush();
+    return 0;
 }

@@ -15,7 +15,7 @@ Pointers are implemented as `UInt`s and thus many standard arithmetic operations
 
 ```
 func main(): Int {
-    var n: CArray<Int>(2); // create a C-style static array (long n[2];)
+    let n: Int[2]; // create a C-style static array (long n[2];)
     n[0] = 1; n[1] = 4; // initialize the array
 
     var ptr = &n; // get address of static array
@@ -24,14 +24,14 @@ func main(): Int {
 }
 ```
 
-They can even be bitcasted to `UInt`s.
+They can even be interpreted as `UInt`s.
 
 ```
-let uint = bit_cast<UInt>(ptr);
+let uint = ptr :: UInt;
 ```
 
 In Floral, 0 is never a valid address. Thus, you can use 0 to indicate pointer errors or absence of value. 0 is also represented by the macro `null`.
 
 ```
-#define null 0
+#define null 0u
 ```

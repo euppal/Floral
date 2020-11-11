@@ -13,6 +13,8 @@
 #include <iostream>
 #include <unordered_map>
 #include <memory>
+#include <vector>
+#include "floral_cdef.h"
 
 namespace Floral {
     class TokenLoc {
@@ -34,17 +36,16 @@ namespace Floral {
         leftBracket, rightBracket,
         semicolon, colon, comma, dot, arrow, backarrow,
         func,
-        simpleString, boolTrue, boolFalse, null, numIntDec, numUIntDec, numByteDec, numUByteDec, numShortDec, numUShortDec, numInt32Dec, numUInt32Dec, numIntHex, numWideChar, numWideUChar, numFloating,
+        asciiString, wideString, boolTrue, boolFalse, null, numIntDec, numUIntDec, numByteDec, numUByteDec, numShortDec, numUShortDec, numInt32Dec, numUInt32Dec, numIntHex, numWideChar, numWideUChar, numFloating,
         int64Type, uint64Type,
         charType, ucharType, wideCharType, wideUCharType,
         shortType, ushortType,
         int32Type, uint32Type,
         boolType,
-        stringType, cStringType,
         voidType,
-        plus, minus, inc, dec, multiply, divide, assign, notOp, andOp, orOp, modulus, xorOp, less, greater, lessEqual, greaterEqual, equal, unequal, power,
-        global, let, var, if_, while_, for_, struct_, behavior, predecl,
-        return_, using_, const_, sizeof_, unsafe_cast
+        plus, minus, inc, dec, multiply, divide, plusEqu, minusEq, mulEq, divEq, assign, notOp, inv, andOp, orOp, modulus, xorOp, less, greater, lessEqual, greaterEqual, equal, unequal, power, scopeResolve,
+        global, let, var, if_, while_, for_, struct_, behavior, predecl, typealias,
+        return_, using_, const_, sizeof_, unsafe_cast, static_, inline_, namespace_
     };
     bool tokenTypeIsOperator(TokenType type);
     const std::string tokenTypeStrings[] {
@@ -55,17 +56,16 @@ namespace Floral {
         "leftBracket", "rightBracket",
         "semicolon", "colon", "comma", "dot", "arrow", "backarrow",
         "func",
-        "simpleString", "boolTrue", "boolFalse", "null", "long", "unsigned long", "signed char", "unsigned char", "signed short", "unsigned short", "signed int", "unsigned int", "hexadecimal long", "signed wide char", "unsigned wide char", "floatingPointNumber",
+        "asciiString", "wideString", "boolTrue", "boolFalse", "null", "numIntDec", "numUIntDec", "numByteDec", "numUByteDec", "numShortDec", "numUShortDec", "numInt32Dec", "numUInt32Dec", "numIntHex", "numWideChar", "numWideUChar", "numFloating",
         "int64Type", "uint64Type",
-        "charType", "ucharType", "wideCharType", "wideUCharType"
+        "charType", "ucharType", "wideCharType", "wideUCharType",
         "shortType", "ushortType",
-        "int32Type", "uint32type",
+        "int32Type", "uint32Type",
         "boolType",
-        "stringType", "cStringType",
         "voidType",
-        "plus", "minus", "inc", "dec", "multiply", "divide", "assign", "not", "and", "or", "modulus", "xor", "less", "greater", "lessEqual", "greaterEqual", "equal", "unequal", "power",
-        "global", "let", "var", "if", "while", "for", "struct", "behavior", "predecl",
-        "return", "using", "const", "sizeof", "unsafe_cast"
+        "plus", "minus", "inc", "dec", "multiply", "divide", "plusEqu", "minusEqu", "mulEqu", "divEqu", "assign", "not", "inv", "and", "or", "modulus", "xor", "less", "greater", "lessEqual", "greaterEqual", "equal", "unequal", "power", "scopeResolve",
+        "global", "let", "var", "if", "while", "for", "struct", "behavior", "predecl", "typealias",
+        "return", "using", "const", "sizeof", "unsafe_cast", "static", "inline", "namespace"
     };
 
     const std::unordered_map<std::string, TokenType> keywordMap = {
@@ -82,25 +82,34 @@ namespace Floral {
         { "struct", TokenType::struct_ },
         { "behavior", TokenType::behavior },
         { "predecl", TokenType::predecl },
+        { "type", TokenType::typealias },
+        { "static", TokenType::static_ },
+        { "inline", TokenType::inline_ },
+        { "namespace", TokenType::namespace_ },
         { "Int", TokenType::int64Type },
         { "Int64", TokenType::int64Type },
+        { "QWord", TokenType::int64Type },
         { "UInt", TokenType::uint64Type },
         { "UInt64", TokenType::uint64Type },
+        { "UnsignedQWord", TokenType::uint64Type },
         { "Char", TokenType::charType },
         { "Int8", TokenType::charType },
         { "UChar", TokenType::ucharType },
         { "UInt8", TokenType::ucharType },
+        { "Byte", TokenType::ucharType },
         { "WideChar", TokenType::wideCharType },
         { "WideUChar", TokenType::wideUCharType },
         { "Short", TokenType::shortType },
         { "Int16", TokenType::shortType },
+        { "Word", TokenType::shortType },
         { "UShort", TokenType::ushortType },
         { "UInt16", TokenType::ushortType },
+        { "UnsignedWord", TokenType::ushortType },
         { "Int32", TokenType::int32Type },
+        { "DWord", TokenType::uint32Type },
         { "UInt32", TokenType::uint32Type },
+        { "UnsignedDWord", TokenType::uint32Type },
         { "Bool", TokenType::boolType },
-        { "String", TokenType::stringType },
-        { "CString", TokenType::cStringType },
         { "Void", TokenType::voidType },
         { "return", TokenType::return_ },
         { "using", TokenType::using_ },
@@ -110,6 +119,8 @@ namespace Floral {
     };
 
     std::string tokenTypeDescription(TokenType type);
+    bool tokenTypeIsDeclarator(TokenType type); 
+
     struct Token {
 
         TokenLoc loc;
@@ -118,6 +129,7 @@ namespace Floral {
            
     public:
         Token(TokenLoc loc, TokenType type, const std::string& contents);
+        Token(TokenLoc loc, TokenType type, const std::string& contents, const std::vector<FloralWideChar>& _wstr);
         friend bool operator ==(const Token& lhs, const Token& rhs);
         
         void print() const;
@@ -135,6 +147,8 @@ namespace Floral {
         bool isId() const;
         
         static Token* invalid;
+        
+        std::vector<FloralWideChar> _wstr;
     };
 }
 

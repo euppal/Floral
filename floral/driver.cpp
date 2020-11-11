@@ -9,9 +9,9 @@
 #include "driver.hpp"
 #include "Sources.hpp"
 
+#define ON_VERBOSE if (commandParser.isVerbose() && !commandParser.printNotRunCmds())
+
 void driver(CommandParser& commandParser) {
-    title("floralc - The Floral Compiler");
-    
     if (commandParser.hasErrors()) {
         for (auto &error: commandParser.errors()) {
             error.print();
@@ -19,12 +19,31 @@ void driver(CommandParser& commandParser) {
         return;
     }
     
-    const std::string outfile { commandParser.outfile().first };
-
-    for (auto &file: commandParser.infiles()) {
-        annotated("Compiling", file.first);
+    if (commandParser.showHelp()) {
+        title("floralc - The Floral Compiler");
+        annotated("\nUSAGE", "floralc [options] files...");
+        annotated(
+            "\nOPTIONS",
+            "\n"
+            "-###                   Print (but do not run) the commands to run for this compilation\n"
+            "-c                     Compile the source without linking\n"
+            "-cat-src, -s           Concatenate the preprocessed source code\n"
+            "-dump-type-trace, -t   Dump the static analyzer's type trace\n"
+            "-stack-guard, -g       Inserts the xor of the return address and the base pointer and ensures that it remains unmodified\n"
+            "-o <target>            Specifies the executable target name\n"
+            "-open-asm              Open the generated assembly for debugging purposes\n"
+            "-O                     Use optimizations\n"
+            "-print-ast, -a         Print the AST for debugging purposes\n"
+            "-S                     Stop after assembly generation\n"
+            "-use <lib>, -U<lib>    Link with the specified library (e.g. 'stl', 'C')\n"
+            "-verbose, -v           Produce verbose (colored) output"
+        );
+        return;
     }
-    annotated("Target", outfile);
+    
+    ON_VERBOSE title("floralc - The Floral Compiler");
+    
+    const std::string outfile { commandParser.outfile().first };
 
     v2::Compiler compiler;
 
@@ -35,41 +54,47 @@ void driver(CommandParser& commandParser) {
     
     // Config
     compiler.optimization = commandParser.optimization();
-    compiler.usingCFunctions = commandParser.usingCFunctions();
-    compiler.notUsingStdlib = commandParser.notUsingStdlib();
+    compiler._stackGuard = commandParser.stackGuard();
     compiler.showTypeTrace(commandParser.typeTrace());
+    
+    int compileError {};
+    std::set<std::string> libs;
+    commandParser.initLibs(libs);
     
     for (auto &infile: commandParser.infiles()) {
         if (infile.second == CmdFileExt::floral) {
-            compile(infile, commandParser, compiler);
+            ON_VERBOSE annotated("Compiling", infile.first);
+            compileError += (compile(infile, commandParser, compiler, libs) != 0);
         }
     }
-        
-    note("Compiliation " + (compiler.hasErrors() ? "failed" : "finished in " + std::to_string(t.elapsed()) + " seconds"));
     
-    if (!compiler.hasErrors()) {
-        heading2("\nModifiers", (std::string)(compiler.notUsingStdlib ? "" : "[link standard lib] ") + (compiler.usingCFunctions ? "[link C bridge] " : ""));
+    ON_VERBOSE annotated("Target", outfile);
 
-        std::vector<std::string> objfiles {
-            "~/Programming/floral-src/stdlib/obj/init.o"
-        };
-        if (!compiler.notUsingStdlib) {
-            objfiles.push_back("~/Programming/floral-src/stdlib/obj/std.o");
-        }
-        if (compiler.usingCFunctions) {
-            objfiles.push_back("~/Programming/floral-src/stdlib/obj/cbridge.o");
-        }
-        for (auto &infile: commandParser.infiles()) {
-            make_objfile(objfiles, infile, compiler);
-        }
-
-        std::string link_exec_cmd {
-            "ld -o " + outfile
-        };
-        for (auto objf: objfiles) {
-            link_exec_cmd += ' ' + objf;
-        }
-        link_exec_cmd += " -lSystem";
-        execute(link_exec_cmd);
+    ON_VERBOSE note("Compiliation " + (compiler.hasErrors() || compileError ? "failed" : "finished in " + std::to_string(t.elapsed()) + " seconds"));
+    if (compiler.hasErrors() || compileError || commandParser.stopAtASM()) return;
+    
+    ON_VERBOSE heading2("\nModifiers", (std::string)(commandParser.usingSTL() ? "[link standard lib] " : "") + (commandParser.usingCBridge() ? "[link C bridge] " : ""));
+    
+    std::vector<std::string> objfiles {
+        FLORAL_OBJ(core)
+    };
+    for (auto &lib: libs) {
+        objfiles.push_back(liblocFromName(lib));
     }
+    for (auto &infile: commandParser.infiles()) {
+        make_objfile(objfiles, infile, compiler, commandParser);
+    }
+    
+    if (commandParser.justCompile()) return;
+    
+    std::string link_exec_cmd {
+        "ld -o " + outfile
+    };
+    for (auto objf: objfiles) {
+        link_exec_cmd += ' ' + objf;
+    }
+    link_exec_cmd += " -lSystem";
+    execute(link_exec_cmd, commandParser);
+    
+    _free();
 }

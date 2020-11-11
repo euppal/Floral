@@ -53,7 +53,7 @@ namespace Floral {
         bool isQuoteChar(void);
         bool isDotChar(void);
         
-        std::pair<const std::string, const TokenType> _analyze(const std::string& str);
+        Token _analyze(const std::string& str);
         
         Token multichar(bool substitute = true);
         Token simpleStr(void);
@@ -64,7 +64,7 @@ namespace Floral {
         Token drive(void);
         
     public:
-        bool _doanalyze {};
+        bool _doanalyze {true};
         std::vector<Token> lex();
     };
 }

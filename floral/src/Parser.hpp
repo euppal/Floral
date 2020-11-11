@@ -15,11 +15,10 @@
 #include "Token.hpp"
 #include "AST.hpp"
 #include "Error.hpp"
+#include "CommandParser.hpp"
+#define NAMESPACE_DELIMITER '#'
 
 namespace Floral {
-    enum class Use {
-        stdlib, C
-    };
     class Parser: public ErrorReporting {
         void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
         void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
@@ -30,16 +29,23 @@ namespace Floral {
         
         Token current();
         Token peek();
-        void advance();
+        size_t isAhead(TokenType goal, const std::vector<TokenType>& allowed);
+        void pacman();
         bool eof();
         Token match(TokenType type, const std::string& withinCtx = "", const std::string& fix = "");
         void synchronize();
         
         Type* type();
         Initializer* initializer();
+        StructConstructor* structConstr();
+        
+        Declaration* declaration();
         Declaration* function();
         Declaration* global();
         StructDeclaration* structdef();
+        TypeAliasDeclaration* typealias();
+        NamespaceDeclaration* nmspace();
+        
         Statement* statement(bool checkSemicolon = true);
         LetStatement* let(bool checkSemicolon = true);
         VarStatement* var(bool checkSemicolon = true);
@@ -52,20 +58,23 @@ namespace Floral {
         WhileStatement* whileStm();
         ForStatement* forStm();
         Block* block();
-        Expression* expr();
-        BinaryExpression* binaryexpr(Expression* lhs, OperatorComponentExpression* op);
+        
+        Expression* expr(bool acceptsRightBracket = true);
+        BinaryExpression* binaryexpr(Expression* lhs, OperatorComponentExpression* op, bool acceptsRightBracket = true);
         Expression* primaryexpr();
         OperatorComponentExpression* op();
         Call* callexpr();
         Literal* literalexpr();
         SymbolExpression* symbolexpr();
         UnsafeCast* unsafecastexpr();
+        ConstructExpression* constructexpr(const Token& n);
         
         std::vector<Use> _use;
+        std::set<Function::Attributes> _attrs;
         std::string _path;
         int _synchr_count {};
         
-        std::vector<std::pair<std::string, size_t>> similarTo(const std::string& str);
+        std::vector<std::pair<std::string, size_t>> similarTo(const std::string& str, bool wantsDeclarators = false);
         
     public:
         const std::vector<Use>& use() const;

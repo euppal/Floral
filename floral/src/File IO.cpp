@@ -12,7 +12,7 @@
 #include <fstream>
 
 namespace Floral {
-    void read(const std::string path, std::string &result) {
+    void read(const std::string& path, std::string &result) {
 //        FILE *file { fopen(path.c_str(), "r") };
 //        fseek(file, 0, SEEK_END);
 //        long length { ftell(file) };
@@ -32,7 +32,7 @@ namespace Floral {
             }
         }
     }
-    void write(const std::string path, const std::string &contents) {
+    void write(const std::string& path, const std::string &contents) {
 //        FILE *file { fopen(path.c_str(), "wb") };
 //        fwrite(contents.c_str(), sizeof(char), contents.size(), file);
 //        fclose(file);

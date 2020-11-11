@@ -11,9 +11,20 @@
 
 #include <string>
 #include <vector>
+#include <set>
 #include "Error.hpp"
 
+#define FLORAL_OBJS "/usr/local"
+#define FLORAL_SRCS "/usr/local/src"
+#define FLORAL_OBJ(name) "~/Programming/floral-src/stdlib/obj/" #name ".o"
+
 namespace Floral {
+    enum class Use {
+        stl, C
+    };
+    std::string liblocFromName(const std::string& name);
+    void setlibloc(const std::string& libloc, const std::string& name);
+
     enum class CmdFileExt {
         floral, fh, c, nasm, exec, object, unknown
     };
@@ -29,12 +40,22 @@ namespace Floral {
     class CommandParser: public ErrorReporting {        
         std::vector<CmdFile> _infiles;
         CmdFile _outfile;
+        
         int _optimization = 0;
-        int _useC = false;
-        int _noStdlib = false;
-        int _logDebugInfo = false;
-        int _catSrc = false;
-        int _typeTrace = false;
+        std::set<std::string> libs;
+        enum Options {
+            _showHelp = 0,
+            _logDebugInfo,
+            _catSrc,
+            _typeTrace,
+            _justCompile,
+            _stopAtASM,
+            _openASM,
+            _verbose,
+            _printNotRunCmds,
+            _stackGuard
+        };
+        uint32_t packed_options_0 {};
         
         std::vector<Error> _errors;
         void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
@@ -50,12 +71,20 @@ namespace Floral {
         
         std::vector<CmdFile>& infiles();
         const CmdFile& outfile() const;
+        const uint32_t showHelp() const;
         const int optimization() const;
-        const int usingCFunctions() const;
-        const int notUsingStdlib() const;
-        const int logDebugInfo() const;
-        const int catSource() const;
-        const int typeTrace() const;
+        const int usingCBridge() const;
+        const int usingSTL() const;
+        void initLibs(std::set<std::string>& libs) const;
+        const uint32_t logDebugInfo() const;
+        const uint32_t catSource() const;
+        const uint32_t typeTrace() const;
+        const uint32_t justCompile() const;
+        const uint32_t stopAtASM() const;
+        const uint32_t openASM() const;
+        const uint32_t isVerbose() const;
+        const uint32_t printNotRunCmds() const;
+        const uint32_t stackGuard() const;
     };
 }
 

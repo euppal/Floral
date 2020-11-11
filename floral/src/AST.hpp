@@ -14,6 +14,7 @@
 #include <vector>
 #include "Type.hpp"
 #include "Scope.hpp"
+#include <optional>
 
 namespace Floral {
     namespace v2 {
@@ -97,11 +98,27 @@ namespace Floral {
         size_t staticAllocationSize{};
         void setRType(Type* newType);
         
+        enum Attributes {
+            static_ = 0,
+            inline_,
+            onlyReg
+        };
+        
+        #define __cat(x, y) x ## y
+        #define _cat(x, y) __cat(x, y)
+        #define BITSET(n) _cat(_cat(uint, n), _t)
+        typedef BITSET(8) AttributeStorage;
+        #undef __cat
+        #undef _cat
+        #undef BITSET
+
     private:
         Token _name;
         Parameters _parameters;
         std::vector<Statement*> _body;
         Type* _retType;
+        AttributeStorage _attributes {};
+        std::optional<std::string> _depr;
 
     public:
         Function(TextRegion loc, const Token& name, const Parameters& parameters, Type* returnType);
@@ -110,10 +127,20 @@ namespace Floral {
         virtual void print() const override;
         void insert(Statement* stm);
         const std::vector<Statement*>& body() const;
-        const Token& name() const;
+        Token& name();
         size_t arity() const;
         const Type* returnType() const;
         const Parameters& parameters() const;
+        const bool isLeaf() const;
+        
+        const AttributeStorage isStatic() const;
+        void setStatic(AttributeStorage bit);
+        const AttributeStorage isInline() const;
+        void setInline(AttributeStorage bit);
+        const AttributeStorage useRegAllocOnly() const;
+        void setUseRegAllocOnly(AttributeStorage bit);
+
+        const std::optional<std::string>& deprecationWarning();
     };
     struct FunctionForwardDeclaration: public Declaration {
         friend class v2::Compiler;
@@ -123,7 +150,7 @@ namespace Floral {
         ~FunctionForwardDeclaration();
         
         virtual void print() const override;
-        const Token& name() const;
+        Token& name();
         size_t arity() const;
         const Type* returnType() const;
         const Function::Parameters& parameters() const;
@@ -210,7 +237,8 @@ namespace Floral {
         Expression* right() const;
         bool isPlainExpression() const;
     };
-    #define TYPE_STRING_INDICATOR "FLORAL_TYPE_STRING_INDICATOR"
+    #define TYPE_STRING_INDICATOR "FLORAL_TYPE_ASCII_STRING_INDICATOR"
+    #define TYPE_WSTRING_INDICATOR "FLORAL_TYPE_WIDE_STRING_INDICATOR"
     class Literal: public Expression {
     public:
         enum class LType {
@@ -220,7 +248,8 @@ namespace Floral {
             decimalWideChar, decimalWideUChar,
             decimalShort, decimalUShort,
             decimalInt32, decimalUInt32,
-            hexadecimalInteger, floatingPointNumber, cString
+            hexadecimalInteger, floatingPointNumber,
+            cString, wideString
         };
         
     private:
@@ -280,7 +309,7 @@ namespace Floral {
         Initializer* init;
 
     public:
-        const Token name;
+        Token name;
         Type* type;
 
         GlobalDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init);
@@ -405,6 +434,7 @@ namespace Floral {
         void insert(Node* node);
         const std::vector<Node*>& body() const;
         size_t size() const;
+        const bool isLeaf() const;
     };
     class IfStatement: public Statement {
         Expression* _condition;
@@ -445,14 +475,24 @@ namespace Floral {
         Expression* check() const;
         Statement* modify() const;
         Block* body() const;
+        size_t size() const;
+    };
+    struct StructConstructor {
+        StructConstructor(const Function::Parameters& params, const std::vector<std::pair<Token, Expression*>>& inits, Statement* after);
+        ~StructConstructor();
+        
+        Function::Parameters params;
+        std::vector<std::pair<Token, Expression*>> inits;
+        Statement* after;
     };
     class StructDeclaration: public Declaration {
         Token _name;
         std::vector<Statement*> _dataMembers;
         std::vector<Function*> _functionMembers;
+        std::vector<StructConstructor*> _constructors;
         
     public:
-        StructDeclaration(TextRegion loc,const Token& name, const std::vector<Statement*>& dataMembers, const std::vector<Function*>& functionMembers);
+        StructDeclaration(TextRegion loc,const Token& name, const std::vector<Statement*>& dataMembers, const std::vector<Function*>& functionMembers, const std::vector<StructConstructor*>& constructors);
         ~StructDeclaration();
         
         virtual void print() const override;
@@ -460,7 +500,78 @@ namespace Floral {
         long offsetOf(const std::string& memberName) const;
         std::vector<Statement*>& dataMembers();
         std::vector<Function*>& functionMembers();
+        std::vector<StructConstructor*>& constructors();
     };
+    class TypeAliasDeclaration: public Declaration {
+        Token _alias;
+        Type* _aliased;
+        
+    public:
+        TypeAliasDeclaration(TextRegion loc, const Token& alias, Type* aliased);
+        ~TypeAliasDeclaration();
+        
+        virtual void print() const override;
+        const Token& alias() const;
+        Type* aliased() const;
+    };
+    struct ConstructExpression: public Expression {
+        enum class Mode {
+            stack, heap
+        };
+        
+    private:
+        Token _name;
+        std::vector<Expression*> _args;
+        Mode _mode;
+        Type* _struct;
+
+    public:
+        ConstructExpression(TextRegion loc, const Token& name, const std::vector<Expression*>& args, Mode mode);
+        ~ConstructExpression();
+        
+        virtual void print() const override;
+        virtual void pretty() const override;
+        const std::string prettystr() const override;
+        const Token& name() const;
+        const std::vector<Expression*>& args() const;
+        const Mode mode() const;
+        Type* type() const;
+        
+        StructConstructor* sc;
+    };
+    class ArrayLiteralExpression: public Expression {
+        std::vector<Expression*> _values;
+        
+    public:
+        ArrayLiteralExpression(TextRegion loc, const std::vector<Expression*>& values);
+        ~ArrayLiteralExpression();
+        
+        virtual void print() const override;
+        virtual void pretty() const override;
+        const std::string prettystr() const override;
+        const std::vector<Expression*>& values() const;
+    };
+    class NamespaceDeclaration: public Declaration {
+        Token _name;
+        std::vector<Node*> _nodes;
+        
+    public:
+        NamespaceDeclaration(TextRegion loc, const Token& name, const std::vector<Node*>& nodes);
+        ~NamespaceDeclaration();
+        
+        virtual void print() const override;
+        const Token& name() const;
+        const std::vector<Node*>& nodes() const;
+    };
+
+    // https://stackoverflow.com/a/33447587
+    template <typename I> std::string n2hexstr(I w, size_t hex_len = sizeof(I)<<1) {
+        static const char* digits = "0123456789ABCDEF";
+        std::string rc(hex_len,'0');
+        for (size_t i=0, j=(hex_len-1)*4 ; i<hex_len; ++i,j-=4)
+            rc[i] = digits[(w>>j) & 0x0f];
+        return rc;
+    }
 }
 
 #endif /* AST_hpp */

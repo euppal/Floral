@@ -5,11 +5,12 @@
 //  Created by Ethan Uppal on 9/9/20.
 //  Copyright © 2020 Ethan Uppal. All rights reserved.
 //
-
+// ld -r -o std.o colored256io.o coloredio.o dynamic.o intmap.o itoa.o print_buffered.o print.o read.o strtowstr.o swap8.o sys.o upperlowerascii.o util.o wideio.o wreadc.o wstring.o
 #include "Compiler.hpp"
 #include "File IO.hpp"
 #include <cassert>
 #include "Colors.hpp"
+#include "floral_cdef.h"
 
 #define CAT_COMMENTS(opleft, opright) if (!((opleft)->comment.empty() || (opright)->comment.empty())) (opleft)->comment += " && " + (opright)->comment
 #define INSRT_COMMENTS(opleft, opright) if (!((opleft)->comment.empty() || (opright)->comment.empty())) (opleft)->comment = (opright)->comment + " && " + (opleft)->comment
@@ -59,6 +60,7 @@ namespace Floral { namespace v2 {
     }
 
     std::string Compiler::staticEvalulate(Expression* staticEvalExpr) {
+        if (!staticEvalExpr) return "";
         assert(staticEvalExpr->info.isStaticEval && "Expression was not static eval");
         if (auto literal = dynamic_cast<Literal*>(staticEvalExpr)) {
             auto descr = literal->description();
@@ -77,7 +79,12 @@ namespace Floral { namespace v2 {
             
             switch (binary->op()->tkntype()) {
                 case TokenType::plus:
-                    return std::to_string(atoll(staticEvalulate(left).c_str()) + atoll(staticEvalulate(right).c_str()));                    
+                    return std::to_string(atoll(staticEvalulate(left).c_str()) + atoll(staticEvalulate(right).c_str()));
+                case TokenType::minus:
+                    if (left && right) return std::to_string(atoll(staticEvalulate(left).c_str()) + atoll(staticEvalulate(right).c_str()));
+                    else if (!left && right) return std::to_string(-atoll(staticEvalulate(left).c_str()));
+                case TokenType::multiply:
+                    if (left && right) return std::to_string(atoll(staticEvalulate(left).c_str()) * atoll(staticEvalulate(right).c_str()));
                 default:
                     break;
             }
@@ -91,6 +98,19 @@ namespace Floral { namespace v2 {
             } else if (auto copy = dynamic_cast<CopyInitializer*>(init)) {
                 return staticEvalulate(copy->expr());
             }
+        } else if (auto cast = dynamic_cast<UnsafeCast*>(staticEvalExpr)) {
+            return staticEvalulate(cast->expr());
+        } else if (auto arraylit = dynamic_cast<ArrayLiteralExpression*>(staticEvalExpr)) {
+            std::string acc;
+            for (auto expr: arraylit->values()) {
+                acc += staticEvalulate(expr);
+                acc += ", ";
+            }
+            if (!arraylit->values().empty()) {
+                acc.pop_back();
+                acc.pop_back();
+            }
+            return acc;
         }
         assert(false && "Should not reach here");
     }
@@ -181,6 +201,7 @@ namespace Floral { namespace v2 {
 
     // MARK: Return statement
     void Compiler::emitReturnStatement(ReturnStatement *rtnStm) {
+        emitSGEpilogue();
         if (rtnStm->value()) { // if we are retruning a value...
             if (auto literal = dynamic_cast<Literal*>(rtnStm->value())) {
                 if (literal->value().contents == "0") { // if returning zero
@@ -234,8 +255,18 @@ namespace Floral { namespace v2 {
         const auto rhsloc = emitExpression(assignStm->rval());
         if (IS_REG(lhsloc)) {
             emit(new MoveOperation(ValueAtRegisterLocation(static_cast<Register>(lhsloc.reg)), rhsloc, SizeType::qword, "assignment"), SectionType::text);
+            returnRegister(static_cast<Register>(lhsloc.reg));
         } else if (IS_RBPOFFSET(lhsloc)) {
-            emit(new MoveOperation(lhsloc, rhsloc, SizeType::qword, "assignment"), SectionType::text);
+            const Register temp = static_cast<Register>(currentFrame().avaliableScratch());
+            Location lhslocd = lhsloc;
+            lhslocd.isDereference = true;
+            if (lhsloc.isDereference) {
+                emit(new MoveOperation(RegisterLocation(temp), lhslocd, SizeType::qword, "put lval in temp reg"), SectionType::text);
+            } else {
+                emit(new LoadAddressOperation(RegisterLocation(temp), lhslocd, SizeType::qword, "put lval in temp reg"), SectionType::text);
+            }
+            emit(new MoveOperation(ValueAtRegisterLocation(temp), rhsloc, SizeType::qword, "assignment into dereference"), SectionType::text);
+            returnRegister(temp);
         }
         if (IS_REG(rhsloc)) {
             returnRegister(static_cast<Register>(rhsloc.reg));
@@ -266,9 +297,9 @@ namespace Floral { namespace v2 {
     void Compiler::emitIfStatement(IfStatement* ifStm) {
         static int counter {};
         
-        const std::string name =  currentFrame().id + "_#if_skip_" + std::to_string(counter++);
-        const Location loc = emitExpression(ifStm->condition()); // calculate condition
-        
+        const std::string name = currentFrame().id + "_#if_skip_" + std::to_string(counter++);
+        const auto [loc, cond] = emitCondition(ifStm->condition(), true, true); // calculate condition
+
         if (loc.isLiteral) {
             if (loc.value.u) {
                 emitBlock(ifStm->body()); // unconditionally emit block
@@ -276,8 +307,7 @@ namespace Floral { namespace v2 {
                 return;
             }
         } else {
-            emit(new CmpOperation(loc, NumLL(false, SU(0ULL))), SectionType::text); // subtract from itself
-            emit(new JumpOperation(JumpOperation::JType::zero, name), SectionType::text); // nonzero difference = false
+            emit(new JumpOperation(cond, name), SectionType::text);
             if (IS_REG(loc)) {
                 returnRegister(static_cast<Register>(loc.reg));
             }
@@ -293,9 +323,12 @@ namespace Floral { namespace v2 {
         
         const std::string name =  currentFrame().id + "_#while_loop_" + std::to_string(counter++);
         const std::string skipName =  currentFrame().id + "_#while_skip_" + std::to_string(counter2++);
-        emit(new Label(name, false), SectionType::text); // label to loop to
-        const Location loc = emitExpression(whileStm->condition()); // calculate condition
-        emit(new JumpOperation(JumpOperation::JType::zero, skipName), SectionType::text);
+        emit(new Label(name, false, false), SectionType::text); // label to loop to
+        const auto [loc, cond] = emitCondition(whileStm->condition(), true, true); // calculate condition
+        emit(new JumpOperation(cond, skipName), SectionType::text);
+        if (IS_REG(loc)) {
+            returnRegister(static_cast<Register>(loc.reg));
+        }
         emitBlock(whileStm->body());
 
         if (loc.isLiteral) {
@@ -305,12 +338,8 @@ namespace Floral { namespace v2 {
                 return;
             }
         } else {
-            emit(new CmpOperation(loc, NumLL(false, SU(0ULL))), SectionType::text); // subtract from itself
-            emit(new JumpOperation(JumpOperation::JType::nonzero, name), SectionType::text); // nonzero difference = false
-            emit(new Label(skipName, false), SectionType::text); // label to loop to
-            if (IS_REG(loc)) {
-                returnRegister(static_cast<Register>(loc.reg));
-            }
+            emit(new JumpOperation(JumpOperation::JType::normal, name), SectionType::text); // nonzero difference = false
+            emit(new Label(skipName, false, false), SectionType::text); // label to loop to
         }
     }
 
@@ -371,6 +400,19 @@ namespace Floral { namespace v2 {
             emitGlobal(gbl);
         } else if (auto fgbl = dynamic_cast<GlobalForwardDeclaration*>(decl)) {
             emitExternGlobal(fgbl);
+        } else if (auto strct = dynamic_cast<StructDeclaration*>(decl)) {
+            emitStruct(strct);
+        } else if (auto nmspace = dynamic_cast<NamespaceDeclaration*>(decl)) {
+            emitNamespace(nmspace);
+        }
+    }
+
+    // MARK: Emit namespace declaration
+    void Compiler::emitNamespace(NamespaceDeclaration* nmspace) {
+        for (auto node: nmspace->nodes()) {
+            if (auto decl = dynamic_cast<Declaration*>(node)) {
+                emitDeclaration(decl);
+            }
         }
     }
 
@@ -378,18 +420,92 @@ namespace Floral { namespace v2 {
     void Compiler::emitGlobal(GlobalDeclaration *gbl) {
         Initializer* init = gbl->initializer();
         if (init->type == Initializer::zero) {
-            emit(new ZeroData(gbl->name.contents, OPSIZE_FROM_NUM(gbl->type->alignment())), SectionType::bss);
+            emit(new ZeroData(gbl->name.contents, OPSIZE_FROM_NUM(gbl->type->alignment()), 1), SectionType::bss);
         } else if (auto direct = dynamic_cast<const DirectInitializer*>(init)) {
-            emit(new RawText(INDENT + prefixed(gbl->name.contents) + ": " + (direct->expr()->type->isCString() ? "db" : "dq ") + staticEvalulate(direct->expr())), SectionType::rodata);
+            emit(new RawText(INDENT + prefixed(gbl->name.contents) + ": " + ((direct->expr()->type->isPointer() && GET_PTRTYYPE(direct->expr()->type)->size() == 1) ? "db " : "dq ") + staticEvalulate(direct->expr())), SectionType::rodata);
         } else if (auto copy = dynamic_cast<const CopyInitializer*>(init)) {
-            emit(new RawText(INDENT + prefixed(gbl->name.contents) + ": " + (copy->expr()->type->isCString() ? "db" : "dq ") + staticEvalulate(copy->expr())), SectionType::rodata);
+            emit(new RawText(INDENT + prefixed(gbl->name.contents) + ": " + ((copy->expr()->type->isPointer() && GET_PTRTYYPE(copy->expr()->type)->size() == 1) ? "db " : "dq ") + staticEvalulate(copy->expr())), SectionType::rodata);
         }
     }
 
     // MARK: Emit forward-declared global constant
     void Compiler::emitExternGlobal(GlobalForwardDeclaration *fgbl) {
-        emit(new Extern(fgbl->name().contents), SectionType::text);
+        emit(new Extern(fgbl->name().contents, "@ global " + fgbl->name().contents + ": " + fgbl->type()->des()), SectionType::text);
     }
+
+    // MARK: Emit struct constructor
+    // Struct passed alongside constructor for neecssary context
+    void Compiler::emitStructConstructor(StructDeclaration* strct, StructConstructor* constr) {
+        const std::string str = analyzer.strFromFunctionSignature({ strct->name().contents + "._CONSTR", constr->params });
+        emit(new Label(str, false), SectionType::text);
+        const long structStart = currentFrame().nextOffset();
+        const long dif = currentFrame().size + 8;
+        emitEnter();
+        loadParametersIntoFrame(constr->params);
+        for (auto init: constr->inits) {
+            Location result = emitExpression(init.second);
+            const long localizedStructStart = dif - structStart;
+            const long offset = strct->offsetOf(init.first.contents);
+            const long memberOffset = localizedStructStart - offset;
+            
+            if (result.isDereference) {
+                const Register reg = GET_REG(currentFrame());
+                emit(new MoveOperation(RegisterLocation(reg), result, SizeType::qword, "move result into temp reg"), SectionType::text);
+                result = RegisterLocation(reg);
+
+                returnRegister(reg);
+            }
+            
+            emit(new MoveOperation(RBPOffsetLocation(memberOffset), result, SizeType::qword, "member init"), SectionType::text);
+        }
+        emitStatement(constr->after);
+        leaveFrame();
+        emitLeave();
+        emitRet();
+    }
+
+    // MARK: Emit struct
+    void Compiler::emitStruct(StructDeclaration* strct) {
+        frames.push_back({});
+        auto t = new Type(0, strct->name().contents);
+        currentFrame().addData(RegisterLocation(Register::rdi), 8, "this");
+        for (auto fnmem: strct->functionMembers()) {
+            fnmem->_name.contents.insert(0, strct->name().contents + ".");
+            emitFunction(fnmem, true);
+        }
+        for (auto constr: strct->constructors()) {
+            emitStructConstructor(strct, constr);
+        }
+        leaveFrame();
+        delete t;
+    }
+
+    // If array literal, sequentially initialize the elements
+   #define ARRAY_BRANCH(d, n) if ((d)->type()->isArray()) {\
+       if (auto arraylit = dynamic_cast<ArrayLiteralExpression*>(init->expr())) {\
+           size_t i = arraylit->values().size();\
+           for (auto iter = arraylit->values().rbegin(); iter != arraylit->values().rend(); iter++) {\
+               auto val = *iter;\
+               Location result = emitExpression(val);\
+               if (result.isDereference) {\
+                   const Register reg = GET_REG(currentFrame());\
+                   emit(new MoveOperation(RegisterLocation(reg), result, SizeType::qword, "store result in temp reg"), SectionType::text);\
+                   result = RegisterLocation(reg);\
+                   returnRegister(reg);\
+               }\
+                emit(new MoveOperation(RBPOffsetLocation(currentFrame().nextOffset()), result, OPSIZE_FROM_NUM(val->type->size()), #n " " + name + '[' + std::to_string(--i) + "];"), SectionType::text);\
+                if (!i) {\
+                    currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), val->type->size(), name);\
+                } else {\
+                    currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), val->type->size(), name + " + " + std::to_string(i));\
+                }\
+               if (IS_REG(result)) {\
+                   returnRegister(static_cast<Register>(result.reg));\
+               }\
+           }\
+           break;\
+       }\
+   }
 
     // MARK: Emit local variable
     void Compiler::emitLocalVar(VarStatement *v) {
@@ -403,30 +519,41 @@ namespace Floral { namespace v2 {
                 const size_t size = v->type()->size();
                 const std::string name = v->name().contents;
                 
-                emit(
-                    new MoveOperation(
-                        RBPOffsetLocation(currentFrame().nextOffset()),
-                        NumLL(false, SU(0ULL)),
-                        OPSIZE_FROM_NUM(v->type()->alignment()),
-                        "@ var " + name + " = 0"
-                    ),
-                    SectionType::text
-                );
-                currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), size, name);
-
+                 if (v->type()->isArray()) {
+                     const std::string lbl = name + "#zeroarray";
+                     const size_t elementSize = GET_PTRTYYPE(v->type())->size();
+                     const size_t arrayCount = v->type()->_staticArray->second;
+                     currentFrame().addData(RelLabelL(lbl), elementSize * arrayCount, name);
+                     //currentFrame().data.back().loc.isDereference = false;
+                     // If array literal, sequentially initialize the elements
+                     emit(new ZeroData(lbl, OPSIZE_FROM_NUM(elementSize), arrayCount), SectionType::bss);
+                 } else {
+                    emit(
+                         new MoveOperation(
+                            RBPOffsetLocation(currentFrame().nextOffset()),
+                            NumLL(false, SU(0ULL)),
+                            SizeType::qword, //OPSIZE_FROM_NUM(size),
+                            "@ var " + name + " = 0"
+                        ),
+                        SectionType::text
+                    );
+                    currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), size, name);
+                }
                 break;
             }
             case Initializer::direct: {
                 const auto init {static_cast<const DirectInitializer*>(v->initializer())};
-                const Location result = emitExpression(init->expr());
+                auto exprtype = init->expr()->type;
                 const size_t size = v->type()->size();
                 const std::string name = v->name().contents;
+                ARRAY_BRANCH(v, var)
+                const Location result = emitExpression(init->expr(), false, exprtype->isPointer() ? !GET_PTRTYYPE(exprtype)->isConst() : !exprtype->isConst());
                 emit(
                     new MoveOperation(
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         result,
                         SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "@ var " + name + ""
+                        "@ var " + name + ": " + v->type()->des()
                     ),
                     SectionType::text
                 );
@@ -438,15 +565,21 @@ namespace Floral { namespace v2 {
             }
             case Initializer::copy: {
                 const auto init {static_cast<const CopyInitializer*>(v->initializer())};
-                const Location result = emitExpression(init->expr());
+                auto exprtype = init->expr()->type;
                 const size_t size = v->type()->size();
                 const std::string name = v->name().contents;
+                ARRAY_BRANCH(v, var)
+                const Location result = emitExpression(init->expr(), false, exprtype->isPointer() ? !GET_PTRTYYPE(exprtype)->isConst() : !exprtype->isConst());
+                if (dynamic_cast<ConstructExpression*>(init->expr())) {
+                    currentFrame().addData(result, size, name);
+                    return;
+                }
                 emit(
                     new MoveOperation(
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         result,
                         SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "@ var " + name + ""
+                        "@ var " + name + ": " + v->type()->des()
                     ),
                     SectionType::text
                 );
@@ -458,7 +591,7 @@ namespace Floral { namespace v2 {
             }
         }
     }
-    
+
     // MARK: Emit local constant
     void Compiler::emitLocalConst(LetStatement *l) {
         switch (l->initializer()->type) {
@@ -466,30 +599,41 @@ namespace Floral { namespace v2 {
                 const size_t size = l->type()->size();
                 const std::string name = l->name().contents;
                 
-                emit(
-                    new MoveOperation(
-                        RBPOffsetLocation(currentFrame().nextOffset()),
-                        NumLL(false, SU(0ULL)),
-                        SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "@ let " + name + " = 0"
-                    ),
-                    SectionType::text
-                );
-                currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), size, name);
-
+                if (l->type()->isArray()) {
+                    const std::string lbl = name + "#zeroarray";
+                    const size_t elementSize = GET_PTRTYYPE(l->type())->size();
+                    const size_t arrayCount = l->type()->_staticArray->second;
+                    currentFrame().addData(RelLabelL(lbl), elementSize * arrayCount, name);
+                    //currentFrame().data.back().loc.isDereference = false;
+                        // If array literal, sequentially initialize the elements
+                    emit(new ZeroData(lbl, OPSIZE_FROM_NUM(elementSize), arrayCount), SectionType::bss);
+                } else {
+                    emit(
+                        new MoveOperation(
+                            RBPOffsetLocation(currentFrame().nextOffset()),
+                            NumLL(false, SU(0ULL)),
+                            SizeType::qword, //OPSIZE_FROM_NUM(size),
+                            "@ let " + name + " = 0"
+                        ),
+                        SectionType::text
+                    );
+                    currentFrame().addData(RBPOffsetLocation(currentFrame().nextOffset()), size, name);
+                }
                 break;
             }
             case Initializer::direct: {
                 const auto init {static_cast<const DirectInitializer*>(l->initializer())};
-                const Location result = emitExpression(init->expr());
+                auto exprtype = init->expr()->type;
                 const size_t size = l->type()->size();
                 const std::string name = l->name().contents;
+                ARRAY_BRANCH(l, let)
+                const Location result = emitExpression(init->expr(), false, exprtype->isPointer() ? !GET_PTRTYYPE(exprtype)->isConst() : !exprtype->isConst());
                 emit(
-                    new MoveOperation(
+                    new LoadAddressOperation(
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         result,
                         SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "@ let " + name + ""
+                        "@ let " + name + ": " + l->type()->des()
                     ),
                     SectionType::text
                 );
@@ -501,15 +645,17 @@ namespace Floral { namespace v2 {
             }
             case Initializer::copy: {
                 const auto init {static_cast<const CopyInitializer*>(l->initializer())};
-                const Location result = emitExpression(init->expr());
+                auto exprtype = init->expr()->type;
                 const size_t size = l->type()->size();
                 const std::string name = l->name().contents;
+                ARRAY_BRANCH(l, let)
+                const Location result = emitExpression(init->expr(), false, exprtype->isPointer() ? !GET_PTRTYYPE(exprtype)->isConst() : !exprtype->isConst());
                 emit(
                     new MoveOperation(
                         RBPOffsetLocation(currentFrame().nextOffset()),
                         result,
                         SizeType::qword, //OPSIZE_FROM_NUM(size),
-                        "@ let " + name + ""
+                        "@ let " + name + ": " + l->type()->des()
                     ),
                     SectionType::text
                 );
@@ -523,12 +669,20 @@ namespace Floral { namespace v2 {
     }
 
     // MARK: Emit function
-    void Compiler::emitFunction(Function *func) {
+    void Compiler::emitFunction(Function *func, bool isFunctionMember) {
         const FunctionSignature funsig {func->name().contents, func->parameters()};
         const auto flbl {analyzer.strFromFunctionSignature(funsig)};
-        /* if (!func->isStatic()) */
-        emit(new Label(flbl, true), SectionType::text); // label this code
+        emit(new Label(flbl, !func->isStatic()), SectionType::text); // label this code
         emitEnter(); currentFrame().id = flbl; // create new frame
+                
+        if (func->body().size() == 1) {
+            if (auto ret = dynamic_cast<ReturnStatement*>(func->body().front())) {
+                loadParametersIntoFrame(func->parameters(), false, isFunctionMember);
+                emitReturnStatement(ret);
+                leaveFrame();
+                return;
+            }
+        }
         
         // [rbp-N] = first function parameter, where N is the
         //           sum of the sizes of the function parameter
@@ -536,23 +690,54 @@ namespace Floral { namespace v2 {
         // [rbp] = old stack frame
         // [rbp-8] = first local variable
         auto sz = (long long)(func->staticAllocationSize + func->parameters().size() * 8);
-        const long long staticAllocationSize { (sz + 15) & (-16) };
+        long long staticAllocationSize { (sz + 15) & (-16) };
+        if (_stackGuard) {
+            staticAllocationSize += 16;
+        }
 
-        if (staticAllocationSize) emit(new SubOperation(RegisterLocation(Register::rsp), NumLL(true, SU(staticAllocationSize)), "allocate space on the stack for local variables"), SectionType::text);
-        loadParametersIntoFrame(func->parameters());
+        if (staticAllocationSize && (!(staticAllocationSize > 128 && func->isLeaf()) || _stackGuard)) {
+            emit(new SubOperation(RegisterLocation(Register::rsp), NumLL(true, SU(staticAllocationSize)), "allocate space on the stack for local variables"), SectionType::text);
+            currentFrame().size = staticAllocationSize;
+        }
+        
+        emitSGPrologue();
+
+        loadParametersIntoFrame(func->parameters(), true);
+        
+        size_t i = 0;
         for (auto node: func->body()) {
-            if (auto stm = dynamic_cast<Statement*>(node)) emitStatement(stm);
+            if (auto stm = dynamic_cast<Statement*>(node)) {
+                if (i + 2 == func->body().size() && !_stackGuard && func->returnType()->isVoid()) if (auto callStm = dynamic_cast<CallStatement*>(stm)) {
+                    emitCall(callStm->call, true);
+                    leaveFrame();
+                    return;
+                }
+                emitStatement(stm);
+            }
             if (auto decl = dynamic_cast<Declaration*>(node)) emitDeclaration(decl);
+            i++;
         }
         
         // Integer return values up to 64 bits in size are stored in RAX while values up to 128 bit are stored in RAX and RDX
-        
         leaveFrame(); // pop_back the current Frame from std::vector frames
     }
 
     void Compiler::emitExternFunc(FunctionForwardDeclaration* ffunc) {
         const FunctionSignature funsig {ffunc->name().contents, ffunc->parameters()};
-        emit(new Extern(analyzer.strFromFunctionSignature(funsig)), SectionType::text);
+        std::string acc = "@ " + ffunc->name().contents + '(';
+        for (auto param: ffunc->parameters()) {
+            acc += param.type->des();
+            acc += ", ";
+        }
+        acc.pop_back(); acc.pop_back();
+        acc.push_back(')');
+        if (ffunc->returnType()->isIncomplete()) {
+            acc += ": const Void";
+        } else {
+            acc += ": ";
+            acc += ffunc->returnType()->des();
+        }
+        emit(new Extern(analyzer.strFromFunctionSignature(funsig), acc), SectionType::text);
     }
 
     // MARK: Various subroutine components
@@ -570,11 +755,37 @@ namespace Floral { namespace v2 {
         void Compiler::emitRet() {
             emit(new ReturnOperation("return from function"), SectionType::text); // pop return address from stack and jump to it
         }
-        void Compiler::loadParametersIntoFrame(const Function::Parameters& params) {
+    void Compiler::emitSGPrologue() {
+        if (_stackGuard) {
+            currentFrame().addData(RBPOffsetLocation(-8), 8, "Stack Guard");
+            currentFrame().addData(RBPOffsetLocation(-16), 8, "Null Qword");
+            emit(new MoveOperation(RETURN_VALUE_LOC, RBPOffsetLocation(0), SizeType::qword, "load old rbp"), SectionType::text);
+            emit(new XorOperation(RETURN_VALUE_LOC, RBPOffsetLocation(8), "xor with return address"), SectionType::text);
+            emit(new MoveOperation(RBPOffsetLocation(-8), RETURN_VALUE_LOC, SizeType::qword, "stack guard"), SectionType::text);
+            emit(new MoveOperation(RBPOffsetLocation(-16), NumLL(false, SU(0ULL)), SizeType::qword, "null bytes"), SectionType::text);
+        }
+    }
+    void Compiler::emitSGEpilogue() {
+        if (_stackGuard) {
+            const Register reg = GET_REG(currentFrame());
+            emit(new MoveOperation(RegisterLocation(reg), RBPOffsetLocation(0), SizeType::qword, "load old rbp "), SectionType::text);
+            emit(new XorOperation(RegisterLocation(reg), RBPOffsetLocation(8), "xor with return address"), SectionType::text);
+            emit(new CmpOperation(RegisterLocation(reg), RBPOffsetLocation(-8), "check if different than stack guard"), SectionType::text);
+            static int skipper = 0;
+            const std::string skiplbl = '#' + currentFrame().id + "#check_skip_" + std::to_string(skipper++);
+            emit(new JumpOperation(JumpOperation::JType::equal, skiplbl, "no failure"), SectionType::text);
+            emit(new MoveOperation(RegisterLocation(Register::rdi), RBPOffsetLocation(8), SizeType::qword, "return address"), SectionType::text);
+            emit(new MoveOperation(RegisterLocation(Register::rsi), RegisterLocation(Register::rbp), SizeType::qword, "base pointer"), SectionType::text);
+            emit(new CallOperation("stkgrd_fail_u_u", "handle if failure"), SectionType::text);
+            emit(new Label(skiplbl, false, false), SectionType::text);
+            returnRegister(reg);
+        }
+    }
+        void Compiler::loadParametersIntoFrame(const Function::Parameters& params, bool storeAsLocalVars, bool isFunctionMember) {
             const size_t size = params.size();
                 if (size == 0) return;
                 
-                int integers{};
+                int integers = isFunctionMember ? 1 : 0;
         //        int floats{};
                 
                 static const Register integerRegs[] {
@@ -593,9 +804,13 @@ namespace Floral { namespace v2 {
                         if (integers >= 6) { // only 6 registers for arguments
                             stackArgs.push_back(param);
                         } else {
-                            const Location dest = RBPOffsetLocation(currentFrame().nextOffset());
-                            emit(new MoveOperation(dest, RegisterLocation(integerRegs[integers++]), SizeType::qword, "@ load register parameter to local var"), SectionType::text);
-                            currentFrame().addData(dest, param.type->alignment(), param.name.contents);
+                            if (storeAsLocalVars) {
+                                const Location dest = RBPOffsetLocation(currentFrame().nextOffset());
+                                emit(new MoveOperation(dest, RegisterLocation(integerRegs[integers++]), SizeType::qword, "@ load register parameter to local var"), SectionType::text);
+                                currentFrame().addData(dest, param.type->alignment(), param.name.contents);
+                            } else {
+                                currentFrame().addData(RegisterLocation(integerRegs[integers++]), param.type->alignment(), param.name.contents);
+                            }
                         }
                     }
         //            else {
@@ -608,15 +823,27 @@ namespace Floral { namespace v2 {
 
 
         std::pair<Variable, bool> Compiler::lookup(const std::string& name) {
+            long framesOffset = 0;
+            if (auto gbl = analyzer.lookupGlobal(name)) {
+                Variable v;
+                v.loc = RelLabelL(name);
+                v.size = gbl->type->size();
+                v.name = name;
+                return { v, true };
+            }
             for (std::vector<Frame>::const_reverse_iterator i = frames.rbegin(); i != frames.rend(); ++i) {
-                const auto result = (*i).localLookup(name);
-                if (result.second) return result;
+                auto result = (*i).localLookup(name);
+                if (result.second) {
+                    result.first.loc.offset += framesOffset;
+                    return result;
+                }
+                framesOffset += 16;
             }
             return { {0, 0}, false };
         }
 
         // MARK: Emit general expression (COMPLEX)
-        Location Compiler::emitExpression(Expression* expr, bool wantsAddressResult) {
+        Location Compiler::emitExpression(Expression* expr, bool wantsAddressResult, bool mut) {
             if (auto binary = dynamic_cast<BinaryExpression*>(expr)) {
                 // assume true binary expression for now
                 Expression* left {binary->left()};
@@ -625,11 +852,23 @@ namespace Floral { namespace v2 {
                 
                 switch (op->tkntype()) {
                     case TokenType::plus: {
+                        if (!left && right) return emitExpression(right);
                         if (left->type->isPointer()) {
                             const int r = currentFrame().avaliableScratch();
                             const Location leftloc = emitExpression(left);
                             const Location rightloc = emitExpression(right);
-                            emit(new RawText(INDENT "lea " + registerNames[r] + ", [" + leftloc.str() + '+' + rightloc.str() + '*' + std::to_string(left->type->_ptrType->size()) + "] ; pointer arithmetic (" + left->type->des() + " + " + right->prettystr() + ")"), SectionType::text);
+                            if (rightloc.isLiteral) {
+                                if (rightloc.isSigned) {
+                                    emit(new RawText(INDENT "lea " + registerNames[r] + ", [" + leftloc.str() + '+' + std::to_string(GET_PTRTYYPE(left->type)->size() * rightloc.value.s) + "] ; pointer arithmetic (" + left->type->des() + " + " + right->prettystr() + ")"), SectionType::text);
+                                } else {
+                                    emit(new RawText(INDENT "lea " + registerNames[r] + ", [" + leftloc.str() + '+' + std::to_string(GET_PTRTYYPE(left->type)->size() * rightloc.value.u) + "] ; pointer arithmetic (" + left->type->des() + " + " + right->prettystr() + ")"), SectionType::text);
+                                }
+                            } else {
+                                auto size = GET_PTRTYYPE(left->type)->size();
+                                std::string mult = size == 1 ? "" : ('*' + std::to_string(size));
+                                emit(new RawText(INDENT "lea " + registerNames[r] + ", [" + leftloc.str() + '+' + rightloc.str() + mult + "] ; pointer arithmetic (" + left->type->des() + " + " + right->prettystr() + ")"), SectionType::text);
+
+                            }
                             if (IS_REG(leftloc)) returnRegister(static_cast<const Register>(leftloc.reg));
                             if (IS_REG(rightloc)) returnRegister(static_cast<const Register>(rightloc.reg));
                             return RegisterLocation(static_cast<Register>(r));
@@ -638,17 +877,32 @@ namespace Floral { namespace v2 {
                         }
                     }
                     case TokenType::minus: {
-                        return emitBinaryExpr(left, right, OpType::sub);
+                        if (left && right) return emitBinaryExpr(left, right, OpType::sub);
+                        else if (!left && right) {
+                            const Location result = emitExpression(right);
+                            if (result.isLiteral) {
+                                if (result.isSigned) {
+                                    return NumLL(true, SU(-result.value.s));
+                                } else {
+                                    return NumLL(false, SU(-result.value.u));
+                                }
+                            }
+                            emit(new NegationOperation(result, "two's complement negation"), SectionType::text);
+                            return result;
+                        }
                     }
                     case TokenType::multiply: {
                         if (left && right) return emitBinaryExpr(left, right, OpType::imul);
                         else if (!left && right) {
-                            const Location loc = emitExpression(right);
+                            if (wantsAddressResult) {
+                                return emitExpression(right, true);
+                            }
+                            Location loc = emitExpression(right, true);
                             if (IS_REG(loc)) {
                                 const Register reg = static_cast<Register>(loc.reg);
                                 emit(new MoveOperation(RegisterLocation(reg), ValueAtRegisterLocation(reg), SizeType::qword, "dereference"), SectionType::text);
                                 return RegisterLocation(reg);
-                            }
+                            } 
                         }
                     }
                     case TokenType::andOp: {
@@ -681,100 +935,143 @@ namespace Floral { namespace v2 {
                         }
                     }
                     case TokenType::divide: {
-                        // idiv uses rax/rdx
-    //                    push({Register::rax, Register::rdx});
-    //                    frames.back().registersInUse.push_back(Register::rax);
-    //                    frames.back().registersInUse.push_back(Register::rdx);
-    //
-    //                    const std::string lhs = expression(left);
-    //                    const std::string rhs = expression(right);
-    //
-    //
-    //                    // avaliableScratch can return -1 if no regs avaliable, but ignore for now
-    //                    const std::string resultr = registerNames[frames.back().avaliableScratch()];
-    //                    const std::string rhsr = registerNames[frames.back().avaliableScratch()];
-    //
-    //                    textSection.append(
-    //                                       "  mov rdx, 0\n" // set to one of rax < 0
-    //                                       "  mov rax, " + lhs + "\n"
-    //                                       "  mov " + rhsr + ", " + rhs + "\n"
-    //                                       "  idiv " + rhsr + "; quotient\n"
-    //                                       "  mov " + resultr + ", rax\n"
-    //                                       );
-    //
-    //                    returnRegister(rhs);
-    //                    returnRegister(lhs);
-    //                    returnRegister(rhsr);
-    //
-    //                    pop({Register::rax, Register::rdx});
-    //                    frames.back().returnScratchRegister(Register::rax);
-    //                    frames.back().returnScratchRegister(Register::rdx);
-    //
-    //                    textSection.push_back('\n');
-    //
-    //                    return resultr;
+                        const Location lhs = emitExpression(left);
+                        const Location rhs = emitExpression(right);
+                        
+                        emitSaveRegisters({ Register::rax, Register::rdx });
+                        
+                        emit(new XorOperation(RegisterLocation(Register::edx), RegisterLocation(Register::edx), "clear rdx"), SectionType::text);
+                        emit(new MoveOperation(RETURN_VALUE_LOC, lhs, SizeType::qword, "lhs of division into rax"), SectionType::text);
+                        emit(new DivOperation(rhs), SectionType::text);
+
+                        if (IS_REG(lhs) && lhs.reg) {
+                            returnRegister(static_cast<Register>(lhs.reg));
+                        }
+                        if (IS_REG(rhs)) {
+                            returnRegister(static_cast<Register>(rhs.reg));
+                        }
+                        
+                        Location result = RETURN_VALUE_LOC;
+                        
+                        emitRestoreRegisters({ Register::rax, Register::rdx });
+                        const Register reg = static_cast<Register>(currentFrame().avaliableScratch());
+                        emit(new MoveOperation(RegisterLocation(reg), RETURN_VALUE_LOC, SizeType::qword, "save result of div"), SectionType::text);
+                        emit(new PopOperation(RegisterLocation(Register::rax)), SectionType::text);
+                        emit(new PopOperation(RegisterLocation(Register::rdx)), SectionType::text);
+                        return result;
+                    }
+                    case TokenType::plusEqu: {
+                        Location pointer = emitExpression(left, true);
+                        if (pointer.isLbl) {
+                            const Register temp = GET_REG(currentFrame());
+                            emit(new LoadAddressOperation(RegisterLocation(temp), pointer, SizeType::qword, "load pointer to temp reg"), SectionType::text);
+                            pointer = RegisterLocation(temp);
+                        } else if (left->type->isPointer()) {
+                            Location cpy = pointer; cpy.isDereference = true;
+                             if (!IS_REG(pointer)) {
+                                const Register temp = GET_REG(currentFrame());
+                                emit(new MoveOperation(RegisterLocation(temp), pointer, SizeType::qword, "load pointer to temp reg"), SectionType::text);
+                                pointer = RegisterLocation(temp);
+                            }
+                            emit(new MoveOperation(pointer, cpy, SizeType::qword, "prevent pointer-to-pointer indirection"), SectionType::text);
+                        }
+                        const Location increment = emitExpression(right);
+                        pointer.isDereference = true;
+                        emit(new AddOperation(pointer, increment, SizeType::qword, "add then assign"), SectionType::text);
+                        if (wantsAddressResult) {
+                            pointer.isDereference = false;
+                            return pointer;
+                        } else {
+                            return pointer;
+                        }
                     }
                     case TokenType::leftBracket: {
-                        const Location pointer = emitExpression(left);
+                        Location pointer = emitExpression(left, true);
+                        if (pointer.isLbl) {
+                            const Register temp = GET_REG(currentFrame());
+                            emit(new LoadAddressOperation(RegisterLocation(temp), pointer, SizeType::qword, "load pointer to temp reg"), SectionType::text);
+                            pointer = RegisterLocation(temp);
+                        } else if (left->type->isPointer()) {
+                             if (!IS_REG(pointer)) {
+                                const Register temp = GET_REG(currentFrame());
+                                emit(new MoveOperation(RegisterLocation(temp), pointer, SizeType::qword, "load pointer to temp reg"), SectionType::text);
+                                pointer = RegisterLocation(temp);
+                            }
+                            if (pointer.isDereference) {
+                                Location cpy = pointer; cpy.isDereference = true;
+                                emit(new MoveOperation(pointer, cpy, SizeType::qword, "prevent pointer-to-pointer indirection"), SectionType::text);
+                            }
+                        }
                         const Location index = emitExpression(right);
                         
-                        if (index.isLiteral && IS_REG(pointer)) {
-                            const auto size = left->type->_ptrType->size();
+                        if (index.isLiteral && IS_RBPOFFSET(pointer)) {
+                            if (wantsAddressResult) {
+                                const auto size = GET_PTRTYYPE(left->type)->size();
+                                pointer.offset += index.isSigned ? (index.value.s * size) : (index.value.u * size);
+                                return pointer;
+                            }
+                        } else if (index.isLiteral && IS_REG(pointer)) {
+                            const auto size = GET_PTRTYYPE(left->type)->size();
                             const auto opsize = OPSIZE_FROM_NUM(size);
                             const Register pointerReg = static_cast<Register>(pointer.reg);
                             const int resultint = currentFrame().avaliableScratch();
                             const Register resultreg = static_cast<Register>(resultint);
-                            emit(new XorOperation(RegisterLocation(resultreg), RegisterLocation(resultreg), "zero out result"), SectionType::text);
-                            emit(new MoveOperation(RegisterLocation(static_cast<Register>(resultint + REG_IMPL_OFFSET_FOR_SIZE(opsize))), ValueAtOffsetRegisterLocation(pointerReg, index.value.s * size), opsize, "subscript into result"), SectionType::text);
+                            if (opsize != SizeType::qword) emit(new XorOperation(RegisterLocation(resultreg), RegisterLocation(resultreg), "zero out result"), SectionType::text);
+                            if (wantsAddressResult) {
+                                emit(new LoadAddressOperation(RegisterLocation(resultreg), ValueAtOffsetRegisterLocation(pointerReg, index.value.s * size), opsize, "subscript into result"), SectionType::text);
+                            } else {
+                                emit(new MoveOperation(RegisterLocation(static_cast<Register>(resultint + REG_IMPL_OFFSET_FOR_SIZE(opsize))), ValueAtOffsetRegisterLocation(pointerReg, index.value.s * size), opsize, "subscript into result"), SectionType::text);
+
+                            }
                             returnRegister(pointerReg);
                             return RegisterLocation(resultreg);
+                        } else if (IS_REG(index) && IS_REG(pointer)) {
+                            const auto size = GET_PTRTYYPE(left->type)->size();
+                            const auto opsize = OPSIZE_FROM_NUM(size);
+                            returnRegister(static_cast<Register>(index.reg));
+                            if (wantsAddressResult) {
+                                
+                            } else {
+                                if (size-1) emit(new MulOperation(index, NumLL(false, SU((uint64_t)size)), "calculate subscript offset"), SectionType::text);
+                                if (opsize == SizeType::qword) {
+                                    emit(new RawText(
+                                    INDENT "mov " + pointer.str() + ", [" + pointer.str() + "+" + index.str() + "] ; offset"
+                                    ), SectionType::text);
+                                    return pointer;
+                                }
+                                //const int resultint = pointer.reg;
+                                const static std::string sizeTypeNames[] {
+                                    "byte", "word", "dword"
+                                };
+                                emit(new RawText(
+                                                 INDENT "movzx " +
+                                                 /*RegisterLocation(static_cast<Register>(resultint + REG_IMPL_OFFSET_FOR_SIZE(opsize)))*/pointer.str() +
+                                                 ", " + sizeTypeNames[static_cast<int>(opsize)] +
+                                                 " [" + pointer.str() + "+" + index.str() + "] ; offset"
+                                                 ), SectionType::text);
+//                                if (opsize == SizeType::byte) {
+//                                    emit(new AndOperation(RegisterLocation(static_cast<Register>(pointer.reg)), NumLL(false, SU(0xFFULL)), "clear high bytes"), SectionType::text);
+//                                } else if (opsize == SizeType::word) {
+//                                    emit(new AndOperation(RegisterLocation(static_cast<Register>(pointer.reg)), NumLL(false, SU(0xFFFFULL)), "clear high bytes"), SectionType::text);
+//                                }
+                                return pointer;
+                            }
                         }
+                        break;
+                    }
+                    case TokenType::inv: {
+                        const Location loc = emitExpression(right);
+                        emit(new NotOperation(loc, "bitwise not"), SectionType::text);
+                        return loc;
+                    }
+                    case TokenType::notOp: {
+                        return emitCondition(expr).first;
                     }
                     case TokenType::equal: {
-                        const Location resultloc = emitExpression(left);
-                        const Location rhsloc = emitExpression(right);
-                        
-                        if (resultloc.isLiteral && rhsloc.isLiteral) {
-                            const Register r = static_cast<Register>(currentFrame().avaliableScratch());
-                            if (resultloc.value.u == rhsloc.value.u) {
-                                emit(new MoveOperation(RegisterLocation(r), NumLL(false, SU(1ULL)), SizeType::qword), SectionType::text);
-                            } else {
-                                emit(new XorOperation(RegisterLocation(r), RegisterLocation(r)), SectionType::text);
-                            }
-                            return RegisterLocation(r);
-                        }
-                        
-                        emit(new CmpOperation(resultloc, rhsloc), SectionType::text);
-                        emit(new MoveOperation(resultloc, NumLL(false, SU(0ULL)), SizeType::qword, "assume unequal by default"), SectionType::text);
-                        emit(new RawText(INDENT "sete " + RegisterLocation(static_cast<Register>(static_cast<int>(resultloc.reg) + (static_cast<int>(Register::al) - static_cast<int>(Register::rax)))).str()), SectionType::text);
-
-                        if (IS_REG(rhsloc)) {
-                            returnRegister(static_cast<Register>(rhsloc.reg));
-                        }
-                        
-                        return resultloc;
+                        return emitCondition(expr).first;
                     }
                     case TokenType::unequal: {
-                        const Location resultloc = emitExpression(left);
-                        const Location rhsloc = emitExpression(right);
-                        
-                        if (resultloc.isLiteral && rhsloc.isLiteral) {
-                            const Register r = static_cast<Register>(currentFrame().avaliableScratch());
-                            if (resultloc.value.u != rhsloc.value.u) {
-                                emit(new MoveOperation(RegisterLocation(r), NumLL(false, SU(1ULL)), SizeType::qword), SectionType::text);
-                            } else {
-                                emit(new XorOperation(RegisterLocation(r), RegisterLocation(r)), SectionType::text);
-                            }
-                            return RegisterLocation(r);
-                        }
-                        
-                        emit(new SubOperation(resultloc, rhsloc, resultloc.str() + " becomes true if unequal"), SectionType::text);
-                        
-                        if (IS_REG(rhsloc)) {
-                            returnRegister(static_cast<Register>(rhsloc.reg));
-                        }
-                        
-                        return resultloc;
+                        return emitCondition(expr).first;
                     }
                     case TokenType::less: {
                         const Location lhsloc = emitExpression(left);
@@ -799,7 +1096,7 @@ namespace Floral { namespace v2 {
                             return RegisterLocation(r);
                         }
                         
-                        emit(new XorOperation(resultloc, resultloc), SectionType::text);
+                        emit(new MoveOperation(resultloc, ZeroLL, SizeType::qword), SectionType::text);
                         emit(new CmpOperation(lhsloc, rhsloc), SectionType::text);
                         
                         Register reg = static_cast<Register>(currentFrame().avaliableScratch());
@@ -820,13 +1117,39 @@ namespace Floral { namespace v2 {
                     }
                     case TokenType::dot: {
                         Location lhsloc = emitExpression(left, true);
-                        auto member = dynamic_cast<SymbolExpression*>(right);
-                        const long offset = left->type->structValue()->offsetOf(member->value().contents);
-                        if IS_RBPOFFSET(lhsloc) lhsloc.offset += offset;
-                        if (wantsAddressResult) return lhsloc;
-                        const Register result = static_cast<Register>(currentFrame().avaliableScratch());
-                        emit(new RawText(INDENT "mov " + RegisterLocation(result).str() + ", " +  lhsloc.str() + " ; member access"), SectionType::text);
-                        return RegisterLocation(result);
+                        if (!IS_RBPOFFSET(lhsloc)) {
+                            lhsloc.offset = 0;
+                            lhsloc.isDereference = false;
+                        }
+                        if (auto member = dynamic_cast<SymbolExpression*>(right)) {
+                            const long offset = -left->type->structValue()->offsetOf(member->value().contents);
+                            const Register temp = static_cast<Register>(currentFrame().avaliableScratch());
+                            if (lhsloc.isDereference || !wantsAddressResult) {
+                                lhsloc.isDereference = true;
+                                emit(new MoveOperation(RegisterLocation(temp), lhsloc, SizeType::qword, "move struct into temp reg"), SectionType::text);
+                            } else {
+                                lhsloc.isDereference = true;
+                                emit(new LoadAddressOperation(RegisterLocation(temp), lhsloc, SizeType::qword, "move struct into temp reg"), SectionType::text);
+                            }
+                            if (offset) {
+                                emit(new SubOperation(RegisterLocation(temp), NumLL(true, SU((long long)offset)), "member offset in struct"), SectionType::text);
+                            }
+                            if (wantsAddressResult) {
+                                if (IS_REG(lhsloc)) {
+                                    returnRegister(static_cast<Register>(lhsloc.reg));
+                                }
+                                return RegisterLocation(temp);
+                            }
+                            emit(new MoveOperation(RegisterLocation(temp), ValueAtRegisterLocation(temp), SizeType::qword, "member access"), SectionType::text);
+    //                        emit(new MoveOperation(RegisterLocation(result), ValueAtOffsetRegisterLocation(result, offset), SizeType::qword, "member access"), SectionType::text);
+                            return RegisterLocation(temp);
+                        } else if (auto call = dynamic_cast<Call*>(right)) {
+                            lhsloc.isDereference = true;
+                            emit(new LoadAddressOperation(RegisterLocation(Register::rdi), lhsloc, SizeType::qword, "this pointer = first arg"), SectionType::text);
+                            call->args.insert(call->args.begin(), nullptr);
+                            call->name.contents.insert(0, left->type->structValue()->name().contents + '.');
+                            return emitCall(call);
+                        }
                     }
                     default: {
                         // Unsupported operation
@@ -842,10 +1165,24 @@ namespace Floral { namespace v2 {
                         const std::string lbl {"#str_literal_" + std::to_string(strlitCount++)}; // create the label
                         std::string stringLiteral {literal->value().contents};
                         _strprocess(stringLiteral);
-                        emit(new StringData(lbl, stringLiteral), SectionType::rodata); // add the labeled string as bytes in section .rodata
+                        emit(new StringData(lbl, stringLiteral), mut ? SectionType::data : SectionType::rodata); // add the labeled string as bytes in section .rodata
                         
                         const Register resultr = static_cast<Register>(frames.back().avaliableScratch()); // get a new register
                         emit(new LoadAddressOperation(RegisterLocation(resultr), RelLabelL(lbl), SizeType::qword, "string literal"), SectionType::text); // dump the string into this new register
+                        return RegisterLocation(resultr);
+                    }
+                    case Literal::LType::wideString: {
+                        static long wstrlitCount = 0;
+                        const std::string lbl {"#wstr_literal_" + std::to_string(wstrlitCount++)}; // create the label
+                        auto wstrData = new Data(lbl, SizeType::dword, false);
+                        const auto wchars = literal->value()._wstr;
+                        for (auto codepoint: wchars) {
+                            wstrData->values.push_back(SU((long long)codepoint));
+                        }
+                        wstrData->values.push_back(SU(0ULL));
+                        emit(wstrData, mut ? SectionType::data : SectionType::rodata);
+                        const Register resultr = static_cast<Register>(frames.back().avaliableScratch()); // get a new register
+                        emit(new LoadAddressOperation(RegisterLocation(resultr), RelLabelL(lbl), SizeType::qword, "wide string literal"), SectionType::text); // dump the string into this new register
                         return RegisterLocation(resultr);
                     }
                     case Literal::LType::boolean: {
@@ -856,17 +1193,17 @@ namespace Floral { namespace v2 {
                     case Literal::LType::decimalWideChar:
                     case Literal::LType::decimalShort:
                     case Literal::LType::decimalInt32: {
-                        return NumLL(false, SU(atoll(literal->value().contents.c_str()))); // simply return the integer value
+                        return NumLL(true, SU(atoll(literal->value().contents.c_str()))); // simply return the integer value
                     }
                     case Literal::LType::decimalUInteger:
                     case Literal::LType::decimalUByte:
                     case Literal::LType::decimalWideUChar:
                     case Literal::LType::decimalUShort:
                     case Literal::LType::decimalUInt32: {
-                        return NumLL(true, SU((uint64_t)strtoul(literal->value().contents.c_str(), NULL, 10))); // simply return the integer value
+                        return NumLL(false, SU((uint64_t)strtoul(literal->value().contents.c_str(), NULL, 10))); // simply return the integer value
                     }
                     case Literal::LType::hexadecimalInteger: {
-                        assert(false && "Unsupported currently"); // need to work out radix conversion stuff
+                        return NumLL(false, SU((uint64_t)strtoul(literal->value().contents.c_str(), NULL, 16))); // simply return the hex integer value
                     }
                     case Literal::LType::floatingPointNumber: {
                         // WRONG!!!!!!! should return an xmm register but WILL FIX
@@ -886,9 +1223,27 @@ namespace Floral { namespace v2 {
                     assert(false && "Static analyzer should catch this");
                 }
                 auto loc = result.first.loc;
-                if (wantsAddressResult) return loc;
+                auto d = loc.isDereference;
+                if (symbol->type->isPointer()) {
+                    loc.isDereference = true;
+                } else {
+                    loc.isDereference = false;
+                }
+                if (wantsAddressResult) {
+                    loc.isDereference = false;
+                    return loc;
+                }
+                loc.isDereference = d;
                 const Register resultr = static_cast<Register>(frames.back().avaliableScratch());
-                emit(new MoveOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
+                if (loc.isLbl) {
+                    if (wantsAddressResult) {
+                        emit(new LoadAddressOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
+                    } else {
+                        emit(new MoveOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
+                    }
+                } else {
+                    emit(new MoveOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
+                }
                 return RegisterLocation(resultr);
             }
             else if (auto call = dynamic_cast<Call*>(expr)) {
@@ -899,6 +1254,33 @@ namespace Floral { namespace v2 {
             }
             else if (auto unsafecast = dynamic_cast<UnsafeCast*>(expr)) {
                 return emitExpression(unsafecast->expr());
+            }
+            else if (auto constructor = dynamic_cast<ConstructExpression*>(expr)) {
+                auto strct = constructor->type()->structValue();
+                long offset = 0;
+                size_t index = 0;
+                long start = currentFrame().nextOffset();
+                for (auto datam: strct->dataMembers()) {
+                    if (auto var = dynamic_cast<VarStatement*>(datam)) {
+                        offset += var->type()->alignment();
+                        if (!start) start = offset;
+                        Location argresult = emitExpression(constructor->args()[index++]);
+                        if (argresult.isDereference) {
+                            const Register temp = static_cast<Register>(currentFrame().avaliableScratch());
+                            emit(new MoveOperation(RegisterLocation(temp), argresult, SizeType::qword, "store arg in temp reg"), SectionType::text);
+                            argresult = RegisterLocation(temp);
+                            returnRegister(temp);
+                        }
+                        emit(new MoveOperation(RBPOffsetLocation(-offset), argresult, SizeType::qword, "@ initialize data member"), SectionType::text);
+                        if (IS_REG(argresult)) {
+                            returnRegister(static_cast<Register>(argresult.reg));
+                        }
+                    }
+                }
+                return RBPOffsetLocation(start);
+            }
+            else if (auto arrayliteralexpr = dynamic_cast<ArrayLiteralExpression*>(expr)) {
+                
             }
             
             // Should not reach here
@@ -922,17 +1304,28 @@ namespace Floral { namespace v2 {
             
             // avaliableScratch can return -1 if no regs avaliable, but ignore for now
             // get a result and rhs temporary register for calculation
-            const Register resultr = static_cast<Register>(frames.back().avaliableScratch());
-            const Register rhsr = static_cast<Register>(frames.back().avaliableScratch());
+            Register resultr;
+            Register rhsr;
+            
+            if (IS_REG(lhs)) {
+                resultr = static_cast<Register>(lhs.reg);
+            } else {
+                resultr = static_cast<Register>(frames.back().avaliableScratch());
+                emit(new MoveOperation(RegisterLocation(resultr), lhs, SizeType::qword), SectionType::text);
+            }
+            if (IS_REG(rhs)) {
+                rhsr = static_cast<Register>(rhs.reg);
+            } else {
+                rhsr = static_cast<Register>(frames.back().avaliableScratch());
+                emit(new MoveOperation(RegisterLocation(rhsr), rhs, SizeType::qword), SectionType::text);
+            }
             
             // move the expression results into the new temp registers
-            emit(new MoveOperation(RegisterLocation(resultr), lhs, SizeType::qword), SectionType::text);
-            emit(new MoveOperation(RegisterLocation(rhsr), rhs, SizeType::qword), SectionType::text);
             
             // Perform the operation
             switch (op) {
                 case OpType::add: {
-                    emit(new AddOperation(RegisterLocation(resultr), RegisterLocation(rhsr), "add"), SectionType::text);
+                    emit(new AddOperation(RegisterLocation(resultr), RegisterLocation(rhsr), SizeType::qword, "add"), SectionType::text);
                     break;
                 }
                 case OpType::sub: {
@@ -945,6 +1338,10 @@ namespace Floral { namespace v2 {
                 }
                 case OpType::and_: {
                     emit(new AndOperation(RegisterLocation(resultr), RegisterLocation(rhsr), "bitwise and"), SectionType::text);
+                    break;
+                }
+                case OpType::or_: {
+                    emit(new OrOperation(RegisterLocation(resultr), RegisterLocation(rhsr), "bitwise or"), SectionType::text);
                     break;
                 }
                 default: {
@@ -961,167 +1358,373 @@ namespace Floral { namespace v2 {
             return RegisterLocation(resultr);
         }
 
-        // MARK: Caller save registers
-        void Compiler::emitSaveRegisters(const std::vector<Register> &registers) {
-            for (std::vector<Register>::const_reverse_iterator i = registers.rbegin(); i != registers.rend(); ++i) {
-                currentFrame().returnScratchRegister(*i);
-                emit(new PushOperation(RegisterLocation(*i)), SectionType::text);
-            }
-        }
-        void Compiler::emitRestoreRegisters(const std::vector<Register> &registers) {
-            for (auto reg: registers) {
-                currentFrame().registersInUse.push_back(reg);
-                emit(new PopOperation(RegisterLocation(reg)), SectionType::text);
-            }
-        }
-
-        // MARK: Load arguments pre-call
-        std::pair<long long, std::vector<Register>> Compiler::emitCallArguments(const std::vector<Expression *> &args) {
-            // https://en.wikipedia.org/wiki/X86_calling_conventions#System_V_AMD64_ABI -
-            // The first six integer or pointer arguments are passed in registers RDI, RSI, RDX, RCX, R8, R9
-            // while XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6 and XMM7 are used for the first floating point arguments. As in the Microsoft x64 calling convention, additional arguments are passed on the stack.
-            const size_t size = args.size();
-            if (size == 0) return {0, {}};
+    // MARK: Emit condition to set specified flags
+    std::pair<Location, Condition> Compiler::emitCondition(Expression* expr, bool inverted, bool justFlags) {
+        if (auto binary = dynamic_cast<BinaryExpression*>(expr)) {
+            Expression* left = binary->left();
+            Expression* right = binary->right();
             
-            int integers{};
-    //        int floats{};
-            
-            static const Register integerRegs[] {
-                Register::rdi, Register::rsi, Register::rdx, Register::rcx, Register::r8, Register::r9
-            };
-    //        static const Register floatRegs[] {
-    //
-    //        };
-                    
-            std::vector<Expression*> stackArgs;
-            std::vector<Register> overwrittenRegs;
-            stackArgs.reserve(max(6, size) - 6);
-                    
-            for (size_t index = 0; index < size; index++) {
-                Expression* arg {args[index]};
-                if ((true) || arg->type->isInteger()) {
-                    if (integers >= 6) { // only 6 registers for arguments
-                        stackArgs.push_back(arg);
-                    } else {
-                        const Register argreg = integerRegs[integers++];
-                        if (std::find_if(currentFrame().data.begin(), currentFrame().data.end(), [argreg](Variable v) -> bool {
-                            return v.loc == RegisterLocation(argreg);
-                        }) != currentFrame().data.end()) {
-                            emit(new PushOperation(RegisterLocation(argreg)), SectionType::text);
-                            overwrittenRegs.push_back(argreg);
+            switch (binary->op()->tkntype()) {
+                case TokenType::notOp: {
+                    if (left && !right) {
+                        assert(false && "Improper overloading test in SPA");
+                    }
+                    const Location resultloc = emitExpression(right);
+                    if (resultloc.isLiteral) {
+                        if (resultloc.value.u) {
+                            const Register reg = static_cast<Register>(currentFrame().avaliableScratch());
+                            emit(new XorOperation(RegisterLocation(reg), RegisterLocation(reg), "set the zero flag"), SectionType::text);
+                            returnRegister(reg);
+                            return { TrueLL, inverted ? Condition::nonzero : Condition::zero };
+                        } else {
+                            const Register reg = static_cast<Register>(currentFrame().avaliableScratch());
+                            emit(new XorOperation(RegisterLocation(reg), RegisterLocation(reg), "set the zero flag"), SectionType::text);
+                            return { FalseLL, inverted ? Condition::zero : Condition::nonzero };
                         }
-                        const Location result = emitExpression(arg);
-                        if (result.reg != static_cast<int>(argreg)) emit(new MoveOperation(RegisterLocation(argreg), result, SizeType::qword, "argument " + std::to_string(index)), SectionType::text);
-                        if (result.reg != LOC_IS_NOT_REG) returnRegister(static_cast<Register>(result.reg));
+                    }
+                    
+                    emit(new CmpOperation(resultloc, ZeroLL, "set zero flag if false"), SectionType::text); // zero flag set = false
+                    emit(new MoveOperation(resultloc, FalseLL, SizeType::qword, "zero result"), SectionType::text); // assume false
+                    const Register reg = static_cast<Register>(currentFrame().avaliableScratch());
+                    emit(new MoveOperation(RegisterLocation(reg), TrueLL, SizeType::qword, "temp reg for conditional move"), SectionType::text);
+                    emit(new RawText(INDENT "cmovz " + RegisterLocation(static_cast<Register>(resultloc.reg + 8)).str() + ", " + registerNames[static_cast<int>(reg) + 8] + " ; set true if zero flag"), SectionType::text); // if false set to true
+                    returnRegister(reg);
+                    return { resultloc, inverted ? Condition::nonzero : Condition::zero };
+                }
+                case TokenType::equal: {
+                    const Location resultloc = emitExpression(left);
+                    const Location rhsloc = emitExpression(right);
+                    
+                    if (resultloc.isLiteral && rhsloc.isLiteral) {
+                        if (justFlags) {
+                            return { NumLL(false, SU((uint64_t)(resultloc.value.u == rhsloc.value.u))), inverted ? Condition::unequal : Condition::equal };
+                        }
+                        const Register r = GET_REG(currentFrame());
+                        if (resultloc.value.u != rhsloc.value.u) {
+                            emit(new XorOperation(RegisterLocation(r), RegisterLocation(r)), SectionType::text);
+                        } else {
+                            emit(new XorOperation(RegisterLocation(r), RegisterLocation(r)), SectionType::text);
+                            emit(new CmpOperation(RegisterLocation(r), OneLL), SectionType::text);
+                        }
+                        return { RegisterLocation(r), inverted ? Condition::nonzero : Condition::zero };
+                    }
+                    
+                    emit(new XorOperation(resultloc, resultloc), SectionType::text);
+                    emit(new CmpOperation(resultloc, rhsloc), SectionType::text);
+                    
+                    if (justFlags) {
+                        return { RelLabelL("N/A"), inverted ? Condition::zero : Condition::nonzero };
+                    }
+                    
+                    emit(new RawText(INDENT "cmovnz " + RegisterLocation(static_cast<Register>(static_cast<int>(resultloc.reg) + 8)).str() + " ; equal condition = nonzero for true"), SectionType::text);
+                    
+                    if (IS_REG(rhsloc)) {
+                        returnRegister(static_cast<Register>(rhsloc.reg));
+                    }
+                    
+                    return { resultloc, inverted ? Condition::zero : Condition::nonzero };
+                }
+                case TokenType::unequal: {
+                    const Location resultloc = emitExpression(left);
+                    const Location rhsloc = emitExpression(right);
+                    
+                    if (resultloc.isLiteral && rhsloc.isLiteral) {
+                        const Register r = static_cast<Register>(currentFrame().avaliableScratch());
+                        if (resultloc.value.u != rhsloc.value.u) {
+                            emit(new XorOperation(RegisterLocation(r), RegisterLocation(r)), SectionType::text);
+                        } else {
+                            emit(new MoveOperation(RegisterLocation(r), NumLL(false, SU(1ULL)), SizeType::qword), SectionType::text);
+                        }
+                        return { RegisterLocation(r), inverted ? Condition::nonzero : Condition::zero };
+                    }
+                    
+                    emit(new SubOperation(resultloc, rhsloc, resultloc.str() + " becomes 0 if equal"), SectionType::text);
+                    
+                    if (IS_REG(rhsloc)) {
+                        returnRegister(static_cast<Register>(rhsloc.reg));
+                    }
+                    
+                    return { resultloc, inverted ? Condition::nonzero : Condition::zero };
+                }
+                case TokenType::less: {
+                    const Location resultloc = emitExpression(left);
+                    const Location rhsloc = emitExpression(right);
+                    
+                    if (resultloc.isLiteral && rhsloc.isLiteral) {
+                        const Register r = GET_REG(currentFrame());
+                        if (resultloc.value.s < rhsloc.value.s) {
+                            emit(new XorOperation(RegisterLocation(r), RegisterLocation(r)), SectionType::text);
+                        } else {
+                            emit(new MoveOperation(RegisterLocation(r), NumLL(false, SU(1ULL)), SizeType::qword), SectionType::text);
+                        }
+                        return { RegisterLocation(r), inverted ? Condition::nonzero : Condition::zero };
+                    }
+                    
+                    emit(new CmpOperation(resultloc, rhsloc), SectionType::text);
+                    
+                    if (IS_REG(resultloc)) {
+                        returnRegister(static_cast<Register>(resultloc.reg));
+                    }
+                    if (IS_REG(rhsloc)) {
+                        returnRegister(static_cast<Register>(rhsloc.reg));
+                    }
+                    
+                    if (justFlags) {
+                        return { RelLabelL("N/A"), inverted ? Condition::greaterEqual : Condition::less };
+                    }
+                    
+                    const Register r = GET_REG(currentFrame());
+                    emit(new MoveOperation(RegisterLocation(r), ZeroLL, SizeType::qword), SectionType::text);
+                    const Register r8bit = static_cast<Register>(static_cast<int>(r) + 32);
+                    emit(new RawText(INDENT "setl " + RegisterLocation(r8bit).str()), SectionType::text);
+                    
+                    return { RegisterLocation(r), inverted ? Condition::greaterEqual : Condition::less };
+                }
+                default:
+                    break;
+            }
+        } else if (auto literal = dynamic_cast<Literal*>(expr)) {
+            switch (literal->type()) {
+                case Literal::LType::boolean: {
+                    const Register r = GET_REG(currentFrame());
+                    if (literal->value().type == TokenType::boolTrue) {
+                        emit(new XorOperation(RegisterLocation(r), RegisterLocation(r)), SectionType::text);
+                    } else {
+                        emit(new MoveOperation(RegisterLocation(r), NumLL(false, SU(1ULL)), SizeType::qword), SectionType::text);
+                    }
+                    emit(new CmpOperation(RegisterLocation(r), FalseLL), SectionType::text);
+                    returnRegister(r);
+                    if (literal->value().type == TokenType::boolTrue) {
+                        return { TrueLL, inverted ? Condition::zero : Condition::nonzero };
+                    } else {
+                        return { FalseLL, inverted ? Condition::nonzero : Condition::zero };
                     }
                 }
+                default:
+                    break;
+            }
+        } else if (auto symbol = dynamic_cast<SymbolExpression*>(expr)) {
+            // MARK: literally looks for defined stuff in this frame will fix later
+            const auto result = lookup(symbol->value().contents); // PROBLEM: only valid in reference to that frame. Add member to struct variable called TOTAL OFFSET or ABSOLUTE OFFSET which contains the offset FROM THE START and hence make the calculation of the offset from the current rbp possible
+            if (!result.second) {
+                assert(false && "Static analyzer should catch this");
+            }
+            auto loc = result.first.loc;
+            const Register resultr = static_cast<Register>(frames.back().avaliableScratch());
+            emit(new MoveOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
+            emit(new CmpOperation(RegisterLocation(resultr), NumLL(false, SU(0ULL))), SectionType::text);
+            return { RegisterLocation(resultr), inverted ? Condition::zero : Condition::nonzero };
+        }
+        assert(false && "Unimplemented condition");
+    }
+
+    // MARK: Caller save registers
+    void Compiler::emitSaveRegisters(const std::vector<Register> &registers) {
+        for (std::vector<Register>::const_reverse_iterator i = registers.rbegin(); i != registers.rend(); ++i) {
+            currentFrame().returnScratchRegister(*i);
+            emit(new PushOperation(RegisterLocation(*i)), SectionType::text);
+        }
+    }
+    void Compiler::emitRestoreRegisters(const std::vector<Register> &registers) {
+        for (auto reg: registers) {
+            currentFrame().registersInUse.push_back(reg);
+        }
+    }
+
+    // MARK: Load arguments pre-call
+    std::pair<long long, std::vector<Register>> Compiler::emitCallArguments(const std::vector<Expression*>& args) {
+        // https://en.wikipedia.org/wiki/X86_calling_conventions#System_V_AMD64_ABI -
+        // The first six integer or pointer arguments are passed in registers RDI, RSI, RDX, RCX, R8, R9
+        // while XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6 and XMM7 are used for the first floating point arguments. As in the Microsoft x64 calling convention, additional arguments are passed on the stack.
+        const size_t size = args.size();
+        if (size == 0) return {0, {}};
+            
+        int integers{};
+//        int floats{};
+            
+        static const Register integerRegs[] {
+            Register::rdi, Register::rsi, Register::rdx, Register::rcx, Register::r8, Register::r9
+        };
+//        static const Register floatRegs[] {
+//
+//        };
+                    
+        std::vector<Expression*> stackArgs;
+        std::vector<Register> overwrittenRegs;
+        stackArgs.reserve(max(6, size) - 6);
+                    
+        for (size_t index = 0; index < size; index++) {
+            Expression* arg {args[index]};
+            if ((true) || arg->type->isInteger()) {
+                if (integers >= 6) { // only 6 registers for arguments
+                    stackArgs.push_back(arg);
+                } else {
+                    const Register argreg = integerRegs[integers++];
+                    if (std::find_if(currentFrame().data.begin(), currentFrame().data.end(), [argreg](Variable v) -> bool {
+                        return v.loc == RegisterLocation(argreg);
+                    }) != currentFrame().data.end()) {
+                        emit(new PushOperation(RegisterLocation(argreg)), SectionType::text);
+                        overwrittenRegs.push_back(argreg);
+                    }
+                    if (!arg)
+                        continue;
+                    const Location result = emitExpression(arg);
+                    if (result.reg != static_cast<int>(argreg)) emit(new MoveOperation(RegisterLocation(argreg), result, SizeType::qword, "argument " + std::to_string(index)), SectionType::text);
+                    if (IS_REG(result)) returnRegister(static_cast<Register>(result.reg));
+                }
+            }
     //            else {
     //                floats++;
     //            }
-            }
+        }
                     
-            const long long stackArgC = stackArgs.size();
-            while (!stackArgs.empty()) {
-                Expression* arg = stackArgs.back();
-                stackArgs.pop_back();
-                        
-                const Location result = emitExpression(arg);
-                emit(new PushOperation(result, "push argument onto stack"), SectionType::text);
-            }
-            return { stackArgC, overwrittenRegs };
+        const long long stackArgC = stackArgs.size();
+        while (!stackArgs.empty()) {
+            Expression* arg = stackArgs.back();
+            stackArgs.pop_back();
+                    
+            const Location result = emitExpression(arg);
+            emit(new PushOperation(result, "push argument onto stack"), SectionType::text);
         }
+        return { stackArgC, overwrittenRegs };
+    }
 
-        // MARK: Emit call
-        Location Compiler::emitCall(Call *call) {
-            const FunctionSignature funsig {call->name.contents, call->_spa_params};
+    // MARK: Emit call
+    Location Compiler::emitCall(Call *call, bool isTailCall) {
+        const FunctionSignature funsig {call->name.contents, call->_spa_params};
+        
+        if (isTailCall) {
+            emitLeave();
+            emitCallArguments(call->args); // load the arguments
+            emit(new JumpOperation(JumpOperation::JType::normal, analyzer.strFromFunctionSignature(funsig), call->generateTypeDescription() + " && tail call optimization"), SectionType::text);
+            return RETURN_VALUE_LOC;
+        }
+        
+        std::vector<Register> registersInUse;
+        if (!frames.empty()) registersInUse = currentFrame().registersInUse;
+        if (!registersInUse.empty() && (registersInUse.size() & 1)) registersInUse.push_back(registersInUse.back());
+        emitSaveRegisters(registersInUse); // push all registers in use onto the stack, as the callee may modify them
+        
+        auto loadresult {emitCallArguments(call->args)}; // load the arguments
+        const long long stackArgC = loadresult.first;
+        
+        emit(new CallOperation(analyzer.strFromFunctionSignature(funsig), call->generateTypeDescription()), SectionType::text); // call the function
+        
+        bool savedrax = false;
+        for (size_t i = 0; i < registersInUse.size(); i++) {
+            if (registersInUse[i] == Register::rax) {
+                savedrax = true;
+            }
+        }
+        if (stackArgC) emit(new AddOperation(RegisterLocation(Register::rsp), NumLL(false, SU(stackArgC * 8)), SizeType::qword, "remove args"), SectionType::text); // remove arguments
+        
+        Location r = RETURN_VALUE_LOC;
+        
+        emitRestoreRegisters(registersInUse); // restore all the saved registers to original state
+        
+        if (savedrax) {
+            const Register result = static_cast<Register>(currentFrame().avaliableScratch());
+            if (!(RegisterLocation(result) == RETURN_VALUE_LOC)) {
+                emit(new MoveOperation(RegisterLocation(result), RETURN_VALUE_LOC, SizeType::qword, "save return value"), SectionType::text);
+                r = RegisterLocation(result);
+            }
+        }
+        
+        for (auto reg: registersInUse) {
+            emit(new PopOperation(RegisterLocation(reg)), SectionType::text);
+        }
+                
+        return r;
+    }
 
-            std::vector<Register> registersInUse;
-            if (!frames.empty()) registersInUse = currentFrame().registersInUse;
-            emitSaveRegisters(registersInUse); // pop all registers in use onto the stack, as the callee may modify them
-            
-            auto loadresult {emitCallArguments(call->args)}; // load the arguments
-            const long long stackArgC = loadresult.first;
-                        
-            emit(new CallOperation(analyzer.strFromFunctionSignature(funsig), call->generateTypeDescription()), SectionType::text); // call the function
-            
-            bool savedrax = false;
-            for (size_t i = 0; i < registersInUse.size(); i++) {
-                if (registersInUse[i] == Register::rax) {
-                    savedrax = true;
-                }
-            }
-            if (stackArgC) emit(new AddOperation(RegisterLocation(Register::rsp), NumLL(false, SU(stackArgC * 8)), "remove args"), SectionType::text); // remove arguments
-            
-            Location r = RETURN_VALUE_LOC;
-            
-            for (auto reg: loadresult.second) {
-                emit(new PopOperation(RegisterLocation(reg)), SectionType::text);
-            }
-            
-            if (savedrax) {
-                const Register result = static_cast<Register>(currentFrame().avaliableScratch());
-                if (!(RegisterLocation(result) == RETURN_VALUE_LOC)) {
-                    emit(new MoveOperation(RegisterLocation(result), RETURN_VALUE_LOC, SizeType::qword, "save return value"), SectionType::text);
-                    r = RegisterLocation(result);
-                }
-            }
-            
-            emitRestoreRegisters(registersInUse); // restore all the saved registers to original state
-            
-            return r;
-        }
+    // MARK: Frame handling
+    void Compiler::enterFrame() {
+        frames.push_back({});
+    }
+    void Compiler::leaveFrame() {
+        frames.pop_back();
+    }
+    Frame& Compiler::currentFrame() {
+        return frames.back();
+    }
 
-        // MARK: Frame handling
-        void Compiler::enterFrame() {
-            frames.push_back({});
+    // MARK: Emit entry point for execution
+    void Compiler::generateEntryPoint(Function* main) {
+        emit(new RawText(
+                         "\nextern _init_floral ; initialization procedure\n"
+                         "global _main ; _main is the entry point in macOS nasm\n" // make entry point visible to linker
+                         "_main:" // _main is the entry point in macOS nasm
+                         ), SectionType::text);
+        
+        const std::string nameOfMain = analyzer.strFromFunctionSignature({main->name().contents, main->parameters()});
+        if (!(nameOfMain == "main" || nameOfMain == "main_i32_u")) {
+            report(Error::resolutionDomain, "Cannot find function main(Int32, &&Char)", main->_loc, { main->_name.pos(), main->_name.contents.size() });
         }
-        void Compiler::leaveFrame() {
-            frames.pop_back();
-        }
-        Frame& Compiler::currentFrame() {
-            return frames.back();
-        }
-
-        // MARK: Emit entry point for execution
-        void Compiler::generateEntryPoint(Function* main) {
-            emit(new RawText(
-                "\nextern _init_floral\n"
-                "global _main ; _main is the entry point in macOS nasm\n" // make entry point visible to linker
-                "_main:" // _main is the entry point in macOS nasm
-            ), SectionType::text);
-            
-            const std::string nameOfMain = analyzer.strFromFunctionSignature({main->name().contents, main->parameters()});
-            if (!(nameOfMain == "main" || nameOfMain == "main_i32_u")) {
-                report(Error::resolutionDomain, "Cannot find function main(Int32, &&Char)", main->_loc, { main->_name.pos(), main->_name.contents.size() });
-            }
-            
-            emit(new SubOperation(RegisterLocation(Register::rsp), NumLL(false, SU(8LLU)), "@ so stack is aligned upon calls"), SectionType::text); // align stack to 16 bytes
-            emit(new RawText(INDENT "call _init_floral"), SectionType::text);
-            emit(new CallOperation(nameOfMain, "@ call the floral main function"), SectionType::text); // call the Floral main function
-            emit(new AddOperation(RegisterLocation(Register::rsp), NumLL(false, SU(8LLU)), "@ restore stack pointer"), SectionType::text); // restore stack pointer
-            emit(
-                new MoveOperation(RegisterLocation(Register::rdi), RETURN_VALUE_LOC, SizeType::qword, "@ exit code"),
-                SectionType::text
-            ); // store return value (rax) as exit code in rdi (first syscall argment)
-            emit(
-                //new MoveOperation(RegisterLocation(Register::rax), NumLL(false, SU(0x2000001ULL)), SizeType::qword, "0x200001 = exit"),
-                new RawText("  mov eax, 0x2000001 ; @ exit syscall"),
-                SectionType::text
-            ); // set rax to indicate the exit syscall
-            emit(new Syscall(), SectionType::text); // perform syscall
-    //        emitRet();
-        }
+        
+        emit(new SubOperation(RegisterLocation(Register::rsp), NumLL(false, SU(8LLU)), "@ so stack is aligned upon calls"), SectionType::text); // align stack to 16 bytes
+        emit(new RawText(INDENT "call _init_floral ; @ call initialization procedure"), SectionType::text);
+        emit(new CallOperation(nameOfMain, "@ call the floral main function"), SectionType::text); // call the Floral main function
+        emit(new AddOperation(RegisterLocation(Register::rsp), NumLL(false, SU(8LLU)), SizeType::qword, "@ restore stack pointer"), SectionType::text); // restore stack pointer
+        emit(
+             new MoveOperation(RegisterLocation(Register::rdi), RETURN_VALUE_LOC, SizeType::qword, "@ exit code"),
+             SectionType::text
+             ); // store return value (rax) as exit code in rdi (first syscall argment)
+        emit(
+             //new MoveOperation(RegisterLocation(Register::rax), NumLL(false, SU(0x2000001ULL)), SizeType::qword, "0x200001 = exit"),
+             new RawText("  mov eax, 0x2000001 ; @ exit syscall"),
+             SectionType::text
+             ); // set rax to indicate the exit syscall
+        emit(new Syscall(), SectionType::text); // perform syscall
+        //        emitRet();
+    }
 
 
     // MARK: General optimiziation
     void Compiler::optimize(int passes) {
-        if (passes > 0) {
+        for (auto riter = textSection.instructions.rbegin(); riter != textSection.instructions.rend(); riter++) {
+            if (auto extern_ = dynamic_cast<Extern*>(*riter)) {
+                int refcount {};
+                for (auto instr: textSection.instructions) {
+                    if (auto call = dynamic_cast<CallOperation*>(instr)) {
+                        if (call->lbl == extern_->lbl) {
+                            refcount++;
+                        }
+                    } else if (auto jmp = dynamic_cast<JumpOperation*>(instr)) {
+                        if (jmp->lbl == extern_->lbl) {
+                            refcount++;
+                        }
+                    } else if (auto lea = dynamic_cast<LoadAddressOperation*>(instr)) {
+                        if (lea->src.lbl == extern_->lbl) {
+                            refcount++;
+                        }
+                    } else if (auto mov = dynamic_cast<MoveOperation*>(instr)) {
+                        if (mov->src.lbl == extern_->lbl) {
+                            refcount++;
+                        }
+                        if (mov->dest.lbl == extern_->lbl) {
+                            refcount++;
+                        }
+                    }
+                }
+                if (!refcount) {
+                    textSection.instructions.erase(--(riter.base()));
+                }
+            }
+        }
+        if (passes > 0) {            
+            while (
+                optimizeMatch2(textSection.instructions.size())
+            ) {
+                optimizeMatch3(textSection.instructions.size());
+            }
+            optimizeMatch3(textSection.instructions.size());
             while (
                 optimizeMatch2(textSection.instructions.size())
             ) {
                 optimizeMatch3(textSection.instructions.size());
             }
             optimizeMatch1(textSection.instructions.size());
+            optimizeMatch2(textSection.instructions.size());
         }
         if (passes > 1) {
             //optimizeOutRedundancy(textSection.instructions.size());
@@ -1132,10 +1735,19 @@ namespace Floral { namespace v2 {
     void Compiler::optimizeMatch1(size_t instrc) {
         for (auto iter = textSection.instructions.rbegin(); iter != textSection.instructions.rend(); iter++) {
             if (auto mov = dynamic_cast<MoveOperation*>(*iter)) {
-                if (IS_REG(mov->dest) && mov->dest.reg < 8 && mov->src.isLiteral && mov->src.value.u < 0b11111111) {
+                if (IS_REG(mov->dest) && mov->dest.reg < 8 && mov->src.isLiteral && mov->src.value.u < 0b100000000) {
                     mov->dest.reg += 8;
                 } else if (mov->src == mov->dest) {
                     textSection.instructions.erase(--(iter.base()));
+                }
+            } else if (auto xor_ = dynamic_cast<XorOperation*>(*iter)) {
+                if (IS_REG(xor_->src) && xor_->src == xor_->dest) {
+                    int regint = xor_->src.reg;
+                    if (regint < 8) {
+                        regint += 8;
+                    }
+                    xor_->src.reg = regint;
+                    xor_->dest.reg = regint;
                 }
             }
         }
@@ -1165,28 +1777,29 @@ namespace Floral { namespace v2 {
                             CAT_COMMENTS(amov, bmov);
                             textSection.instructions.erase(textSection.instructions.begin() + i + 1);
                             i--;
-                        } else if (amov->dest.reg == bmov->dest.reg && bmov->dest.isDereference && (bmov->src.isLiteral || IS_REG(bmov->src)) && IS_REG(amov->src)) {
+                        } else if (amov->dest.reg == bmov->dest.reg && IS_REG(amov->dest) && IS_REG(bmov->dest) && bmov->dest.isDereference && (bmov->src.isLiteral || IS_REG(bmov->src)) && IS_REG(amov->src)) {
                             bmov->dest = amov->src;
                             bmov->dest.isDereference = true;
                             INSRT_COMMENTS(bmov, amov);
                             textSection.instructions.erase(textSection.instructions.begin() + i);
                             i--;
-                        } else if (amov->dest == bmov->dest && amov->dest.reg != bmov->src.reg) {
+                        } else if (amov->dest == bmov->dest && amov->dest.reg != bmov->src.reg && IS_REG(amov->dest)) {
                             INSRT_COMMENTS(bmov, amov);
                             textSection.instructions.erase(textSection.instructions.begin() + i);
                             i--;
-                        } else if (amov->dest == bmov->src && !amov->src.isDereference && !bmov->dest.isDereference) {
+                        }
+                        else if (amov->dest == bmov->src && !amov->src.isDereference && !bmov->dest.isDereference) {
                             bmov->src = amov->src;
                             bmov->comment += " (with " + amov->dest.str() + " = " + amov->src.str() + ')';
                         }
                     }
                     else if (auto badd = dynamic_cast<AddOperation*>(b)) {
-                        if (amov->dest == badd->src && amov->dest.reg != LOC_IS_NOT_REG) {
+                        if (amov->dest == badd->src && IS_REG(amov->dest)) {
                             badd->src = amov->src;
                             INSRT_COMMENTS(badd, amov);
                             textSection.instructions.erase(textSection.instructions.begin() + i);
                             i--;
-                        } else if (IS_REG(amov->dest) && badd->dest == amov->dest && !badd->src.isDereference) {
+                        } else if (IS_REG(amov->dest) && badd->dest == amov->dest && ARE_BOTH_LIT(amov, badd)) {
                             if (badd->src.isSigned) {
                                 amov->src.value.s += badd->src.value.s;
                             } else {
@@ -1245,9 +1858,17 @@ namespace Floral { namespace v2 {
                             i--;
                         }
                     }
+                    else if (auto bcmp = dynamic_cast<CmpOperation*>(b)) {
+                        if (IS_REG(amov->dest) && amov->dest == bcmp->dest && !bcmp->src.isDereference && IS_RBPOFFSET(amov->src)) {
+                            bcmp->dest = amov->src;
+                            INSRT_COMMENTS(bcmp, amov);
+                            textSection.instructions.erase(textSection.instructions.begin() + i);
+                            i--;
+                        }
+                    }
                 } else if (auto alea = dynamic_cast<LoadAddressOperation*>(a)) {
                     if (auto bmov = dynamic_cast<MoveOperation*>(b)) {
-                        if (alea->dest == bmov->src && alea->dest.reg != LOC_IS_NOT_REG && IS_REG(bmov->dest)) {
+                        if (alea->dest == bmov->src && IS_REG(alea->dest) && IS_REG(bmov->dest)) {
                             alea->dest = bmov->dest;
                             CAT_COMMENTS(alea, bmov);
                             textSection.instructions.erase(textSection.instructions.begin() + i + 1);
@@ -1257,14 +1878,42 @@ namespace Floral { namespace v2 {
                             INSRT_COMMENTS(bmov, alea);
                             textSection.instructions.erase(textSection.instructions.begin() + i);
                             i--;
+                        } else if (alea->dest == bmov->dest && bmov->dest.reg == bmov->src.reg && IS_REG(alea->dest)) {
+                            INSRT_COMMENTS(bmov, alea);
+                            bmov->src = alea->src;
+                            textSection.instructions.erase(textSection.instructions.begin() + i);
+                            i--;
+                        } else if (alea->dest.reg == bmov->dest.reg && IS_REG(alea->dest) && bmov->dest.isDereference && !bmov->src.isDereference) {
+                            bmov->dest = alea->src;
+                            INSRT_COMMENTS(bmov, alea);
+                            textSection.instructions.erase(textSection.instructions.begin() + i);
+                            i--;
+                        }
+                    } else if (auto bsub = dynamic_cast<SubOperation*>(b)) {
+                        if (bsub->dest == alea->dest && bsub->src.isLiteral && IS_RBPOFFSET(alea->src)) {
+                            if (bsub->src.isSigned) {
+                                alea->src.offset -= bsub->src.value.s;
+                            } else {
+                                alea->src.offset -= (long long)bsub->src.value.u;
+                            }
+                            CAT_COMMENTS(alea, bsub);
+                            textSection.instructions.erase(textSection.instructions.begin() + i + 1);
+                            i--;
+                        }
+                    } else if (auto blea = dynamic_cast<LoadAddressOperation*>(b)) {
+                        if (alea->dest.reg == blea->src.reg && IS_REG(alea->dest) && IS_REG(blea->dest)) {
+                            alea->dest = blea->dest;
+                            CAT_COMMENTS(alea, blea);
+                            textSection.instructions.erase(textSection.instructions.begin() + i + 1);
+                            i--;
                         }
                     }
                 } else if (auto apush = dynamic_cast<PushOperation*>(a)) {
                     if (auto bpop = dynamic_cast<PopOperation*>(b)) {
                         if (apush->src == bpop->dest) {
+                            textSection.instructions.erase(textSection.instructions.begin() + i);
+                            textSection.instructions.erase(textSection.instructions.begin() + i);
                             i -= 2;
-                            textSection.instructions.erase(textSection.instructions.begin() + i);
-                            textSection.instructions.erase(textSection.instructions.begin() + i);
                         }
                     }
                 }
@@ -1297,6 +1946,13 @@ namespace Floral { namespace v2 {
                                     cmov->comment = badd->comment + " && " + cmov->comment;
                                     textSection.instructions.erase(textSection.instructions.begin() + i + 1); // not two since its all shifted
                                 }
+                            } else if (IS_RBPOFFSET(amov->src) && IS_REG(amov->dest) && badd->dest == amov->dest && !badd->src.isDereference && cmov->dest == amov->src && cmov->src == badd->dest) {
+                                badd->dest = amov->src;
+                                badd->opsize = amov->opsize;
+                                CAT_COMMENTS(amov, badd);
+                                INSRT_COMMENTS(badd, amov);
+                                textSection.instructions.erase(textSection.instructions.begin() + i);
+                                textSection.instructions.erase(textSection.instructions.begin() + i + 1);
                             }
                         }
                     } else if (auto bsub = dynamic_cast<SubOperation*>(b)) {
@@ -1335,6 +1991,19 @@ namespace Floral { namespace v2 {
                                     cmov->comment = bmul->comment + " && " + cmov->comment;
                                     textSection.instructions.erase(textSection.instructions.begin() + i + 1); // not two since its all shifted
                                 }
+                            }
+                        }
+                    } else if (auto bmov = dynamic_cast<MoveOperation*>(b)) {
+                        if (auto cmul = dynamic_cast<MulOperation*>(c)) {
+                            if (amov->src == bmov->src && cmul->src == amov->dest && cmul->dest == bmov->dest && IS_REG(amov->src)) {
+                                textSection.instructions.insert(
+                                    textSection.instructions.begin() + i + 3,
+                                    new MoveOperation(bmov->dest, amov->src, SizeType::qword)
+                                );
+                                cmul->src = amov->src;
+                                cmul->dest = amov->src;
+                                textSection.instructions.erase(textSection.instructions.begin() + i);
+                                textSection.instructions.erase(textSection.instructions.begin() + i);
                             }
                         }
                     }
@@ -1428,6 +2097,11 @@ namespace Floral { namespace v2 {
             return;
         }
         // Compile
+        
+        if (_stackGuard) {
+            emit(new Extern("stkgrd_fail_u_u"), SectionType::text);
+        }
+        
         Function* main = nullptr;
         if (file->main()) {
             main = file->main();
@@ -1454,14 +2128,28 @@ namespace Floral { namespace v2 {
             generateEntryPoint(main); // if this is a file with `func main(): Int` then emit the assembly for an entry point
         }
         
-        if (optimization) {
-            optimize(optimization);
-        }
-        
+        optimize(optimization);
+
         Floral::write(outputDest, result());
     }
     const std::string Compiler::result() const {
-        std::string joined = textSection.str() + '\n' + bssSection.str() + '\n' + rodataSection.str() + '\n' + dataSection.str(); // join all sections into one string
+        // join all sections into one string
+        std::string joined = textSection.str() + '\n';
+        if (!bssSection.str().empty()) {
+            joined.push_back('\n');
+            joined += bssSection.str();
+            joined.push_back('\n');
+        }
+        if (!rodataSection.str().empty()) {
+            joined.push_back('\n');
+            joined += rodataSection.str();
+            joined.push_back('\n');
+        }
+        if (!dataSection.str().empty()) {
+            joined.push_back('\n');
+            joined += dataSection.str();
+            joined.push_back('\n');
+        }
         while (joined.back() == '\n') joined.pop_back();
         return joined;
     }

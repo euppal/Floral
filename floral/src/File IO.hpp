@@ -12,8 +12,8 @@
 #include <string>
 
 namespace Floral {
-    void read(const std::string path, std::string &result);
-    void write(const std::string path, const std::string &contents);
+    void read(const std::string& path, std::string &result);
+    void write(const std::string& path, const std::string &contents);
 }
 
 #endif /* Files_h */

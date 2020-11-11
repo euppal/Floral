@@ -104,17 +104,22 @@ namespace Floral {
             
             
             // Function related
-            void emitFunction(Function* func);
+            void emitFunction(Function* func, bool isFunctionMember = false);
             void emitExternFunc(FunctionForwardDeclaration* ffunc);
             void emitEnter(void);
             void emitLeave(void);
             void emitRet(void);
-            void loadParametersIntoFrame(const Function::Parameters& params);
+            void emitSGPrologue(void);
+            void emitSGEpilogue(void);
+            void loadParametersIntoFrame(const Function::Parameters& params, bool storeAsLocalVars = true, bool isFunctionMember = false);
 
             // Declaration related
             void emitDeclaration(Declaration* decl);
+            void emitNamespace(NamespaceDeclaration* nmspace);
             void emitGlobal(GlobalDeclaration* gbl);
             void emitExternGlobal(GlobalForwardDeclaration* fgbl);
+            void emitStructConstructor(StructDeclaration* strct, StructConstructor* constr);
+            void emitStruct(StructDeclaration* strct);
             
             // Statement related
             void emitStatement(Statement* stm);
@@ -133,6 +138,7 @@ namespace Floral {
             // Misc
             void emitReturnSpecificValue(Location src);
             Location emitBinaryExpr(Expression* left, Expression* right, const OpType op);
+            std::pair<Location, Condition> emitCondition(Expression* expr, bool inverted = false, bool justFlags = false);
             void emitSaveRegisters(const std::vector<Register>& registers);
             void emitRestoreRegisters(const std::vector<Register>& registers);
             void enterFrame(void);
@@ -142,9 +148,9 @@ namespace Floral {
             std::pair<Variable, bool> lookup(const std::string& name);
             
             // Expression related
-            Location emitExpression(Expression* expr, bool wantsAddressResult = false);
+            Location emitExpression(Expression* expr, bool wantsAddressResult = false, bool mut = false);
             std::pair<long long, std::vector<Register>> emitCallArguments(const std::vector<Expression*>& args);
-            Location emitCall(Call* call);
+            Location emitCall(Call* call, bool isTailCall = false);
             
             // Optimization
             void optimizeMatch1(size_t instrc);
@@ -166,8 +172,7 @@ namespace Floral {
             void generateEntryPoint(Function* main);
 
             int optimization;
-            int usingCFunctions;
-            int notUsingStdlib;
+            int _stackGuard;
             
             void setOutputDestination(const std::string &dest);
             void showTypeTrace(bool show);

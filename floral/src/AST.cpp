@@ -46,7 +46,7 @@ namespace Floral {
     File::File(TextRegion loc, const std::string &path, const std::vector<Node*> &nodes): Node(loc), _path(path), _nodes(nodes), _main(nullptr) {}
     File::~File() {
         for (auto node: _nodes) {
-            delete node;
+            dealloc(node);
         }
     }
     void File::print() const {
@@ -108,10 +108,10 @@ namespace Floral {
     Function::Function(TextRegion loc, const Token& name, const Parameters& parameters, Type* returnType): Declaration(loc), _name(name), _parameters(parameters), _retType(returnType) {}
     Function::~Function() {
         for (auto stm: _body)
-            delete stm;
+            dealloc(stm);
         for (auto p: _parameters)
-            delete p.type;
-        delete _retType;
+            dealloc(p.type);
+        dealloc(_retType);
     }
     void Function::print() const {
         std::cout << "Function at loc ";
@@ -136,7 +136,7 @@ namespace Floral {
     const std::vector<Statement*>& Function::body() const {
         return _body;
     }
-    const Token& Function::name() const {
+    Token& Function::name() {
         return _name;
     }
     size_t Function::arity() const {
@@ -151,6 +151,39 @@ namespace Floral {
     void Function::setRType(Type* newType) {
         _retType = newType;
     }
+    const bool Function::isLeaf() const {
+        for (auto node: _body) {
+            if (dynamic_cast<CallStatement*>(node)) {
+                return false;
+            } else if (auto block = dynamic_cast<Block*>(node)) {
+                if (!block->isLeaf()) return false;
+            }
+        }
+        return true;
+    }
+    #define REPLACE_BIT(v, b, i)\
+        (v) |= (1 << (i));\
+        (v) &= ((b) << (i))
+    const Function::AttributeStorage Function::isStatic() const {
+        return _attributes & (1 << static_);
+    }
+    void Function::setStatic(Function::AttributeStorage bit) {
+        REPLACE_BIT(_attributes, bit, static_);
+    }
+    const Function::AttributeStorage Function::isInline() const {
+        return _attributes & (1 << inline_);
+    }
+    void Function::setInline(AttributeStorage bit) {
+        REPLACE_BIT(_attributes, bit, inline_);
+    }
+    const Function::AttributeStorage Function::useRegAllocOnly() const {
+        return _attributes & (1 << inline_);
+    }
+    void Function::setUseRegAllocOnly(AttributeStorage bit) {
+        REPLACE_BIT(_attributes, bit, onlyReg);
+    }
+
+const std::optional<std::string>& deprecationWarning();
     FunctionForwardDeclaration::FunctionForwardDeclaration(TextRegion loc, const Token& name, const Function::Parameters& parameters, Type* returnType): Declaration(loc), _name(name), _parameters(parameters), _retType(returnType) {}
     FunctionForwardDeclaration::~FunctionForwardDeclaration() {}
     void FunctionForwardDeclaration::print() const {
@@ -170,7 +203,7 @@ namespace Floral {
             _retType->print();
         std::cout << "'\n";
     }
-    const Token& FunctionForwardDeclaration::name() const {
+    Token& FunctionForwardDeclaration::name() {
         return _name;
     }
     size_t FunctionForwardDeclaration::arity() const {
@@ -198,8 +231,8 @@ namespace Floral {
     }
     GlobalDeclaration::GlobalDeclaration(TextRegion loc, const Token& name, Type* type, Initializer* init): Declaration(loc), name(name), type(type), init(init) {}
     GlobalDeclaration::~GlobalDeclaration() {
-        delete type;
-        delete init;
+        //dealloc(type);
+        dealloc(init);
     }
     void GlobalDeclaration::print() const {
         std::cout << "Global declaration of '" << name.contents << "' at loc ";
@@ -220,8 +253,8 @@ namespace Floral {
     }
     LetStatement::LetStatement(TextRegion loc, const Token& name, Type* type, Initializer* init): Statement(loc), _name(name), _type(type), init(init) {}
     LetStatement::~LetStatement() {
-        delete _type;
-        delete init;
+        dealloc(_type);
+        dealloc(init);
     }
     void LetStatement::print() const {
         std::cout << "Let statement of '" << _name.contents << "' at loc ";
@@ -241,8 +274,8 @@ namespace Floral {
     }
     VarStatement::VarStatement(TextRegion loc, const Token& name, Type* type, Initializer* init): Statement(loc), _name(name), _type(type), init(init) {}
     VarStatement::~VarStatement() {
-        delete _type;
-        delete init;
+        dealloc(_type);
+        dealloc(init);
     }
     void VarStatement::print() const {
         std::cout << "Var statement of '" << _name.contents << "' at loc ";
@@ -262,7 +295,7 @@ namespace Floral {
     }
     GlobalForwardDeclaration::GlobalForwardDeclaration(TextRegion loc, const Token& name, Type* type): Declaration(loc), _name(name), _type(type) {}
     GlobalForwardDeclaration::~GlobalForwardDeclaration() {
-        delete _type;
+        dealloc(_type);
     }
     const Token& GlobalForwardDeclaration::name() const {
         return _name;
@@ -275,10 +308,17 @@ namespace Floral {
         _loc.describe(' ');
     }
 
-    StructDeclaration::StructDeclaration(TextRegion loc, const Token& name, const std::vector<Statement*>& dataMembers, const std::vector<Function*>& functionMembers): Declaration(loc), _name(name), _dataMembers(dataMembers), _functionMembers(functionMembers) {}
+    StructConstructor::StructConstructor(const Function::Parameters& params, const std::vector<std::pair<Token, Expression*>>& inits, Statement* after): params(params), inits(inits), after(after) {}
+    StructConstructor::~StructConstructor() {
+        for (auto param: params) dealloc(param.type);
+        for (auto init: inits) dealloc(init.second);
+        dealloc(after);
+    }
+    StructDeclaration::StructDeclaration(TextRegion loc, const Token& name, const std::vector<Statement*>& dataMembers, const std::vector<Function*>& functionMembers, const std::vector<StructConstructor*>& constructors): Declaration(loc), _name(name), _dataMembers(dataMembers), _functionMembers(functionMembers), _constructors(constructors) {}
     StructDeclaration::~StructDeclaration() {
-        for (auto m_data: _dataMembers) delete m_data;
-        for (auto m_func: _functionMembers) delete m_func;
+        for (auto m_data: _dataMembers) dealloc(m_data);
+        for (auto m_func: _functionMembers) dealloc(m_func);
+        for (auto c: _constructors) dealloc(c);
     }
         
     void StructDeclaration::print() const {
@@ -308,6 +348,37 @@ namespace Floral {
     std::vector<Function*>& StructDeclaration::functionMembers() {
         return _functionMembers;
     }
+    std::vector<StructConstructor*>& StructDeclaration::constructors() {
+        return _constructors;
+    }
+    TypeAliasDeclaration::TypeAliasDeclaration(TextRegion loc, const Token& alias, Type* aliased): Declaration(loc), _alias(alias), _aliased(aliased) {}
+    TypeAliasDeclaration::~TypeAliasDeclaration() {
+        dealloc(_aliased);
+    }
+    void TypeAliasDeclaration::print() const {
+        std::cout << "Type Alias Declaration at loc ";
+        _loc.describe();
+    }
+    const Token& TypeAliasDeclaration::alias() const {
+        return _alias;
+    }
+    Type* TypeAliasDeclaration::aliased() const {
+        return _aliased;
+    }
+    NamespaceDeclaration::NamespaceDeclaration(TextRegion loc, const Token& name, const std::vector<Node*>& nodes): Declaration(loc), _name(name), _nodes(nodes) {}
+    NamespaceDeclaration::~NamespaceDeclaration() {
+        for (auto node: _nodes) dealloc(node);
+    }
+    void NamespaceDeclaration::print() const {
+        std::cout << "Namespace " << _name.contents << " at loc ";
+        _loc.describe();
+    }
+    const Token& NamespaceDeclaration::name() const {
+        return _name;
+    }
+    const std::vector<Node*>& NamespaceDeclaration::nodes() const {
+        return _nodes;
+    }
 
     Statement::Statement(TextRegion loc): Node(loc) {}
     void Statement::print() const {
@@ -316,7 +387,7 @@ namespace Floral {
     }
     CallStatement::CallStatement(TextRegion loc, Call* call): Statement(loc), call(call) {}
     CallStatement::~CallStatement() {
-        delete call;
+        dealloc(call);
     }
     void CallStatement::print() const {
         std::cout << "Call Statement to " << call->name.contents << " at loc ";
@@ -327,7 +398,7 @@ namespace Floral {
     }
     ReturnStatement::ReturnStatement(TextRegion loc, Expression* value): Statement(loc), _value(value) {}
     ReturnStatement::~ReturnStatement() {
-        delete _value;
+        dealloc(_value);
     }
     void ReturnStatement::print() const {
         std::cout << "Return Statement";
@@ -347,7 +418,7 @@ namespace Floral {
     }
     ExpressionStatement::ExpressionStatement(TextRegion loc, Expression* expr): Statement(loc), _expr(expr) {}
     ExpressionStatement::~ExpressionStatement() {
-        delete _expr;
+        dealloc(_expr);
     }
     Expression* ExpressionStatement::expr() const {
         return _expr;
@@ -358,8 +429,8 @@ namespace Floral {
     }
     PointerAssignment::PointerAssignment(TextRegion loc, Expression* ptrExpr, Expression* newValue): Statement(loc), _ptrExpr(ptrExpr), _newValue(newValue) {}
     PointerAssignment::~PointerAssignment() {
-        delete _ptrExpr;
-        delete _newValue;
+        dealloc(_ptrExpr);
+        dealloc(_newValue);
     }
     void PointerAssignment::print() const {
         std::cout << "Pointer Assignment Statement assigning [" << _newValue->prettystr() << "] to the value at [" << _ptrExpr->prettystr() << "] at loc ";
@@ -377,8 +448,8 @@ namespace Floral {
     }
     Assignment::Assignment(TextRegion loc, Expression* lval, Expression* rval): Statement(loc), _lval(lval), _rval(rval) {}
     Assignment::~Assignment() {
-        delete _lval;
-        delete _rval;
+        dealloc(_lval);
+        dealloc(_rval);
     }
     void Assignment::print() const {
         std::cout << "Assignment Statement assigning [" << _rval->prettystr() << "] to [" << _lval->prettystr() << "] at loc ";
@@ -392,8 +463,8 @@ namespace Floral {
     }
     IfStatement::IfStatement(TextRegion loc, Expression* condition, Block* body): Statement(loc), _condition(condition), _body(body) {}
     IfStatement::~IfStatement() {
-        delete _condition;
-        delete _body;
+        dealloc(_condition);
+        dealloc(_body);
     }
     void IfStatement::print() const {
         std::cout << "If Statement at loc ";
@@ -407,7 +478,7 @@ namespace Floral {
     }
     Block::Block(TextRegion loc, const std::vector<Node*>& body): Statement(loc), _body(body) {}
     Block::~Block() {
-        for (auto node: _body) delete node;
+        for (auto node: _body) dealloc(node);
     }
 
     void Block::print() const {
@@ -433,10 +504,20 @@ namespace Floral {
         }
         return acc;
     }
+    const bool Block::isLeaf() const {
+        for (auto node: _body) {
+            if (dynamic_cast<CallStatement*>(node)) {
+                return false;
+            } else if (auto block = dynamic_cast<Block*>(node)) {
+                if (!block->isLeaf()) return false;
+            }
+        }
+        return true;
+    }
     WhileStatement::WhileStatement(TextRegion loc, Expression* condition, Block* body): Statement(loc), _condition(condition), _body(body) {}
     WhileStatement::~WhileStatement() {
-        delete _condition;
-        delete _body;
+        dealloc(_condition);
+        dealloc(_body);
     }
     void WhileStatement::print() const {
         std::cout << "While Statement at loc ";
@@ -450,10 +531,10 @@ namespace Floral {
     }
     ForStatement::ForStatement(TextRegion loc, Statement* init, Expression* check, Statement* modify, Block* body): Statement(loc), _init(init), _check(check), _modify(modify), _body(body) {}
     ForStatement::~ForStatement() {
-        delete _init;
-        delete _check;
-        delete _modify;
-        delete _body;
+        dealloc(_init);
+        dealloc(_check);
+        dealloc(_modify);
+        dealloc(_body);
     }
     void ForStatement::print() const {
         std::cout << "For Statement at loc ";
@@ -471,8 +552,34 @@ namespace Floral {
     Block* ForStatement::body() const {
         return _body;
     }
-
-    Expression::Expression(TextRegion loc): Node(loc) {}
+    size_t ForStatement::size() const {
+        size_t acc {};
+        if (auto let = dynamic_cast<LetStatement*>(_init)) {
+            acc += let->type()->alignment();
+        } else if (auto var = dynamic_cast<VarStatement*>(_init)) {
+            acc += var->type()->alignment();
+        } else if (auto block = dynamic_cast<Block*>(_init)) {
+            acc += block->size();
+        }
+        if (auto let = dynamic_cast<LetStatement*>(_modify)) {
+            acc += let->type()->alignment();
+        } else if (auto var = dynamic_cast<VarStatement*>(_modify)) {
+            acc += var->type()->alignment();
+        } else if (auto block = dynamic_cast<Block*>(_modify)) {
+            acc += block->size();
+        }
+        for (auto node: _body->body()) {
+            if (auto let = dynamic_cast<LetStatement*>(node)) {
+                acc += let->type()->alignment();
+            } else if (auto var = dynamic_cast<VarStatement*>(node)) {
+                acc += var->type()->alignment();
+            } else if (auto block = dynamic_cast<Block*>(node)) {
+                acc += block->size();
+            }
+        }
+        return acc;
+    }
+    Expression::Expression(TextRegion loc): Node(loc), type(nullptr) {}
     void Expression::print() const {
         std::cout << "Expression at loc ";
         _loc.describe();
@@ -480,7 +587,7 @@ namespace Floral {
     Call::Call(TextRegion loc, const Token& name, const std::vector<Expression*>& args): Expression(loc), name(name), args(args) {}
     Call::~Call() {
         for (auto arg: args) {
-            delete arg;
+            dealloc(arg);
         }
     }
     void Call::print() const {
@@ -502,10 +609,15 @@ namespace Floral {
     const std::string Call::generateTypeDescription() const {
         if (args.empty()) return name.contents + "(Void)";
         std::string result { name.contents + '(' };
+        bool nullArg = false;
         for (Expression* expr: args) {
-            result += expr->type->des() + ", ";
+            if (expr) result += expr->type->des() + ", ";
+            else nullArg = true;
         }
-        result.pop_back(); result.pop_back();
+        if (!nullArg || args.size() > 1) {
+            result.pop_back();
+            result.pop_back();
+        }
         result.push_back(')');
         return result;
     }
@@ -523,6 +635,14 @@ namespace Floral {
             return "0x" + _value.contents;
         } else if (_type == LType::cString) {
             return '\"' + _value.contents + '\"';
+        } else if (_type == LType::wideString) {
+            std::string acc = "W\"";
+            for (FloralWideChar wchar: _value._wstr) {
+                acc += "\\x";
+                acc += n2hexstr(wchar);
+            }
+            acc.push_back('\"');
+            return acc;
         }
         else return _value.contents;
     }
@@ -531,6 +651,8 @@ namespace Floral {
             return "0x" + _value.contents;
         } else if (_type == LType::cString) {
             return TYPE_STRING_INDICATOR;
+        } else if (_type == LType::cString) {
+            return TYPE_WSTRING_INDICATOR;
         } else if (_type == LType::boolean) {
             return _value.type == TokenType::boolTrue ? "1" : "0";
         }
@@ -578,7 +700,6 @@ namespace Floral {
     const Token& OperatorComponentExpression::tkn() const {
         return _op;
     }
-
     SymbolExpression::SymbolExpression(TextRegion loc, const Token& val): Expression(loc), _val(val) {}
     SymbolExpression::~SymbolExpression() {}
     void SymbolExpression::print() const {
@@ -595,9 +716,9 @@ namespace Floral {
     }
     BinaryExpression::BinaryExpression(TextRegion loc, Expression* left, OperatorComponentExpression* op, Expression* right): Expression(loc), _left(left), _op(op), _right(right) {}
     BinaryExpression::~BinaryExpression() {
-        delete _left;
-        delete _right;
-        delete type;
+        dealloc(_left);
+        dealloc(_right);
+        //dealloc(type); // MARK: Please fix this somehow
     }
     void BinaryExpression::print() const {
         std::cout << "Binary Expression at loc ";
@@ -626,12 +747,10 @@ namespace Floral {
     Expression* BinaryExpression::right() const {
         return _right;
     }
-        
     SizeOfType::SizeOfType(TextRegion loc, Type* type): Expression(loc), _type(type) {}
     SizeOfType::~SizeOfType() {
-        delete _type;
+        dealloc(_type);
     }
-    
     void SizeOfType::print() const {
         std::cout << "SizeOf Expression at loc ";
         _loc.describe();
@@ -650,10 +769,9 @@ namespace Floral {
     }
     UnsafeCast::UnsafeCast(TextRegion loc, Type* type, Expression* expr): Expression(loc), _type(type), _expr(expr) {}
     UnsafeCast::~UnsafeCast() {
-        delete _type;
-        delete _expr;
+        dealloc(_type);
+        dealloc(_expr);
     }
-
     void UnsafeCast::print() const {
         std::cout << "Unsafe Cast at loc ";
         _loc.describe();
@@ -669,5 +787,69 @@ namespace Floral {
     }
     Expression* UnsafeCast::expr() const {
         return _expr;
+    }
+    ConstructExpression::ConstructExpression(TextRegion loc, const Token& name, const std::vector<Expression*>& args, Mode mode): Expression(loc), _name(name), _args(args), _mode(mode) {
+        _struct = new Type(0, name.contents);
+    }
+    ConstructExpression::~ConstructExpression() {
+        for (auto arg: _args) delete arg;
+        delete _struct;
+    }
+    void ConstructExpression::print() const {
+        std::cout << "Unsafe Cast at loc ";
+        _loc.describe();
+    }
+    void ConstructExpression::pretty() const {
+        std::cout << prettystr();
+    }
+    const std::string ConstructExpression::prettystr() const {
+        switch (_mode) {
+            case Mode::stack:
+                return _name.contents;
+            case Mode::heap: {
+                return "new " + _name.contents;
+            }
+        }
+    }
+    const Token& ConstructExpression::name() const {
+        return _name;
+    }
+    const std::vector<Expression*>& ConstructExpression::args() const {
+        return _args;
+    }
+    const ConstructExpression::Mode ConstructExpression::mode() const {
+        return _mode;
+    }
+    Type* ConstructExpression::type() const {
+        return _struct;
+    }
+    ArrayLiteralExpression::ArrayLiteralExpression(TextRegion loc, const std::vector<Expression*>& values): Expression(loc), _values(values) {}
+    ArrayLiteralExpression::~ArrayLiteralExpression() {
+        for (auto expr: _values) dealloc(expr);
+    }
+
+    void ArrayLiteralExpression::print() const {
+        std::cout << "Array Literal Expression at loc ";
+        _loc.describe();
+    }
+void ArrayLiteralExpression::pretty() const {
+    std::cout << prettystr();
+}
+const std::string ArrayLiteralExpression::prettystr() const {
+    std::string acc;
+    acc.push_back('[');
+    for (auto expr: _values) {
+        acc += expr->prettystr();
+        acc += ", ";
+    }
+    if (!_values.empty()) {
+        acc.pop_back();
+        acc.pop_back();
+    }
+    acc.push_back(']');
+    return acc;
+}
+    const std::vector<Expression*>& ArrayLiteralExpression::values() const {
+        return _values;
     }
 }

@@ -135,13 +135,13 @@ namespace Floral {
             next();
         } while (isIdentifierChar());
         if (substitute && _defines.find(id) != _defines.end()) {
-            id = _defines[id];
+            id = _defines.at(id);
         }
         if (Floral::keywordMap.find(id) != Floral::keywordMap.end())
             return { cachedLoc, Floral::keywordMap.at(id), id };
         if (_doanalyze) {
             const auto result = _analyze(id);
-            return { cachedLoc, result.second, result.first };
+            return { cachedLoc, result.type, result.contents, result._wstr };
         }
         std::pair<const std::string, const TokenType> result = { id, TokenType::identifier };
         return { cachedLoc, result.second, result.first };
@@ -165,7 +165,7 @@ namespace Floral {
             advance();
         else
             return _tkn(TokenType::invalid, "");
-        return { cachedLoc, TokenType::simpleString, str };
+        return { cachedLoc, TokenType::asciiString, str };
     }
     Token Lexer::number() {
         TokenLoc cachedLoc { loc() };
@@ -237,25 +237,48 @@ namespace Floral {
         return { cachedLoc, dot ? TokenType::numFloating : num_type, num };
     }
 
-    std::pair<const std::string, const TokenType> Lexer::_analyze(const std::string& str) {
+    Token Lexer::_analyze(const std::string& str) {
+//        if (str.size() > 1 && str.front() == '\"' && str.back() == '\"') {
+//            std::string_view view { str };
+//            view.remove_prefix(1);
+//            view.remove_suffix(1);
+//            std::string copy { view };
+//            return { copy, TokenType::asciiString };
+//        }
         Lexer lexer(str);
         lexer._doanalyze = false;
-        return { str, lexer.drive().type };
+        for (auto &[key, value]: _defines) {
+            lexer._defines.insert({ key, value });
+        }
+        return lexer.drive();
     }
     
     uint32_t utf8_to_utf32(uint8_t* text);
+    std::vector<uint32_t> utf8_to_utf32_str(const std::vector<uint8_t>& text);
     Token Lexer::drive() {
         while (isSpaceChar()) {
             advance();
         }
         
-        if (eof())
-            return _tkn(TokenType::invalid, "");
+        if (eof()) return _tkn(TokenType::invalid, "");
 
         comments();
         
+        while (isSpaceChar()) {
+            advance();
+        }
+        
         if (current() == 'W' && peek() == '\'') {
             pos += 2;
+            if (current() == 'n') {
+                pos++;
+                if (current() != '\'') {
+                    report(Error::lexDomain, "Expected single quote at end of wide character literal", { pos, 1, line, line }, { pos, 1 });
+                    return _tkn(TokenType::invalid, "");
+                }
+                pos++;
+                return _tkn(TokenType::numWideChar, "10");
+            }
             uint8_t utf8[5] { 0, 0, 0, 0, 0 };
             int l {};
             while (!eof() && current() != '\'') {
@@ -273,6 +296,25 @@ namespace Floral {
             }
             pos++;
             return _tkn(TokenType::numWideChar, std::to_string(c));
+        } else if (current() == 'W' && peek() == '\"') {
+            pos += 2;
+            std::vector<uint8_t> utf8;
+            while (!eof() && current() != '\"') {
+                utf8.push_back((unsigned char)current());
+                pos++;
+            }
+            pos++;
+            if (eof()) {
+                report(Error::lexDomain, "Unexpected end of file in wide string literal", { pos - 2, 1, line, line }, { pos - 2, 1 });
+                return _tkn(TokenType::invalid, "");
+            }
+            auto tkn = _tkn(TokenType::wideString, "");
+            const auto copy = utf8_to_utf32_str(utf8);
+            tkn._wstr.reserve(copy.size());
+            for (auto byte: copy) {
+                tkn._wstr.push_back(byte);
+            }
+            return tkn;
         }
 
         if (isDigitChar())
@@ -318,7 +360,7 @@ namespace Floral {
                 }
                 pos++;
                 if (current() == '\'') {
-                    tmp = _tkn(TokenType::numByteDec, std::to_string(c));
+                    tmp = _tkn(TokenType::numByteDec, std::to_string((int)c));
                 } else {
                     report(Error::lexDomain, "Missing single quote in character literal", { pos, 1, line, line }, { pos, 1 }, "Replace this position with a single quote");
                 }
@@ -343,6 +385,9 @@ namespace Floral {
                     }
                     next();
                     const std::string name = multichar(false).contents;
+                    if (name == "WIDE_ENDL") {
+                        
+                    }
                     if (current() == '\n') {
                         tmp = _tkn(TokenType::macro, "#define " + name);
                         _defines.insert({ name, "" });
@@ -437,6 +482,7 @@ namespace Floral {
                         line--;
                         pos = tpos;
                         if (!buffer.empty()) {
+                            buffer.pop_back();
                             code.insert(pos, buffer);
                         }
                         pos--;
@@ -490,6 +536,9 @@ namespace Floral {
                 if (peek() == '+') {
                     tmp = _tkn(TokenType::inc, "++");
                     next();
+                } else if (peek() == '=') {
+                    tmp = _tkn(TokenType::plusEqu, "+=");
+                    next();
                 } else {
                     tmp = _tkn(TokenType::plus, "+");
                 }
@@ -501,20 +550,31 @@ namespace Floral {
                 } else if (peek() == '-') {
                     tmp = _tkn(TokenType::dec, "--");
                     next();
+                } else if (peek() == '=') {
+                    tmp = _tkn(TokenType::minusEq, "-=");
+                    next();
                 } else {
                     tmp = _tkn(TokenType::minus, "-");
                 }
                 break;
             case '*':
-                if (peek() == '=') {
+                if (peek() == '*') {
                     tmp = _tkn(TokenType::power, "**");
+                    next();
+                } else if (peek() == '=') {
+                    tmp = _tkn(TokenType::mulEq, "*=");
                     next();
                 } else {
                     tmp = _tkn(TokenType::multiply, "*");
                 }
                 break;
             case '/':
-                tmp = _tkn(TokenType::divide, "/");
+                if (peek() == '=') {
+                    tmp = _tkn(TokenType::divEq, "/=");
+                    next();
+                } else {
+                    tmp = _tkn(TokenType::divide, "/");
+                }
                 break;
             case '=':
                 if (peek() == '=') {
@@ -530,6 +590,9 @@ namespace Floral {
                 } else
                     tmp = _tkn(TokenType::notOp, "!");
                 break;
+            case '~':
+                tmp = _tkn(TokenType::inv, "~");
+                break;
             case '&':
                 tmp = _tkn(TokenType::andOp, "&");
                 break;
@@ -543,7 +606,12 @@ namespace Floral {
                 tmp = _tkn(TokenType::xorOp, "^");
                 break;
             case ':':
-                tmp = _tkn(TokenType::colon, ":");
+                if (peek() == ':') {
+                    tmp = _tkn(TokenType::scopeResolve, "::");
+                    next();
+                } else {
+                    tmp = _tkn(TokenType::colon, ":");
+                }
                 break;
             case '<':
                 if (peek() == '=') {
@@ -576,7 +644,7 @@ namespace Floral {
         std::vector<Token> tkns {};
         comments();
         Token tkn { drive() };
-        while (tkn.type != TokenType::invalid) {
+        while (tkn.isValid()) {
             tkns.push_back(tkn);
             if (eof()) {
                 if (tkn.type != TokenType::invalid && !(tkn == tkns.back()))
@@ -590,7 +658,7 @@ namespace Floral {
     }
 
     void Lexer::comments() {
-        if (pos + 2 < code.size() && current() == '/') {
+        if (pos + 1 < code.size() && current() == '/') {
             switch (peek()) {
                 case '/': {
                     pos += 2;
@@ -604,8 +672,10 @@ namespace Floral {
                     pos += 2;
                     break;
                 }
-                default:
-                    return;
+                default: {
+                    report(Error::lexDomain, "Unexpected '/' in source code", { pos, 1, line, line }, { pos, line });
+                    break;
+                }
             }
         }
     }
@@ -632,6 +702,72 @@ namespace Floral {
             c = (text[i] & 0b00000111) << 18 | (text[i + 1] & 0b00111111) << 12 | (text[i + 2] & 0b00111111) << 6 | (text[i + 3] & 0b00111111);
         }
         
+        return c;
+    }
+    std::vector<uint32_t> utf8_to_utf32_str(const std::vector<uint8_t>& text) {
+        std::vector<uint32_t> c;
+        size_t i = 0;
+        while(i < text.size()) {
+            if (text[i] == '\\') {
+                switch (text[i + 1]) {
+                    case 'n':
+                        i += 2;
+                        c.push_back('\n');
+                        continue;
+                    case 't':
+                        i += 2;
+                        c.push_back('\t');
+                        continue;
+                    case 'e':
+                        i += 2;
+                        c.push_back('\e');
+                        continue;
+                    case 'r':
+                        i += 2;
+                        c.push_back('\r');
+                        continue;
+                    case 'u': {
+                        i += 2;
+                        char num[5];
+                        num[4] = 0;
+                        int l = 0;
+                        while (l < 4) {
+                            if (!ishexnumber(text[i])) {
+                                c.push_back(0);
+                                continue;
+                            }
+                            num[l++] = text[i++];
+                        }
+                        uint32_t codepoint = (uint32_t)strtoul(num, nullptr, 16);
+                        c.push_back(codepoint);
+                        continue;
+                    }
+                    default:
+                        break;
+                }
+            }
+            if ((text[i] & 0b10000000) == 0) {
+                // 1 byte code point, ASCII
+                c.push_back(text[i] & 0b01111111);
+                i += 1;
+            }
+            else if ((text[i] & 0b11100000) == 0b11000000) {
+                // 2 byte code point
+                c.push_back((text[i] & 0b00011111) << 6 | (text[i + 1] & 0b00111111));
+                i += 2;
+            }
+            else if ((text[i] & 0b11110000) == 0b11100000) {
+                // 3 byte code point
+                c.push_back((text[i] & 0b00001111) << 12 | (text[i + 1] & 0b00111111) << 6 | (text[i + 2] & 0b00111111));
+                i += 3;
+            }
+            else {
+                // 4 byte code point
+                c.push_back((text[i] & 0b00000111) << 18 | (text[i + 1] & 0b00111111) << 12 | (text[i + 2] & 0b00111111) << 6 | (text[i + 3] & 0b00111111));
+                i += 4;
+            }
+        }
+
         return c;
     }
 }

@@ -34,7 +34,7 @@ namespace Floral {
         bool isWarning = false;
         
         // optional
-        std::string fix;
+        std::string fix; 
         std::string path;
         
         Error(Domain domain, const std::string& text, TextRegion location, ErrorLoc errloc);
