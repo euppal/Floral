@@ -25,12 +25,12 @@
 #define GET_PTRTYYPE(type) ((type)->isArray() ? (type)->_staticArray->first : (type)->_ptrType)
 
 namespace Floral {
-    namespace v2 { class Compiler; }
+    class Compiler;
     class StaticAnalyzer;
     class StructDeclaration;
     class Type {
         friend class StaticAnalyzer;
-        friend class v2::Compiler;
+        friend class Compiler;
         friend class Operator;
                 
         Token* _tknValue;

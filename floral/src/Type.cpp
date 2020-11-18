@@ -47,7 +47,7 @@ namespace Floral {
         }
     }
 
-    const Type Type::void_ { new Token({0, 0}, TokenType::voidType, "") };
+    const Type Type::void_ { new Token({0, 0, 0, ""}, TokenType::voidType, "") };
     const void* Type::value() const {
         if (isStdArray()) return _stdlib_arrType;
         if (isPointer()) return _ptrType;
@@ -254,7 +254,7 @@ namespace Floral {
 
     bool operator ==(const Type& lhs, const Type& rhs) {
         if (lhs.isToken() && rhs.isToken())
-            return *lhs._tknValue == *rhs._tknValue;
+            return lhs._tknValue->type == rhs._tknValue->type;
         if (lhs.isStruct() && rhs.isStruct())
             return lhs._structValue == rhs._structValue;
         if (lhs.isPointer() && rhs.isPointer()) {

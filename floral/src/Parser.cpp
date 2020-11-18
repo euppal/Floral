@@ -10,22 +10,11 @@
 #include "AST.hpp"
 #include "Token.hpp"
 #include <vector>
+#include "LexerKeywords.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 namespace Floral {
-    void Parser::report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
-        Error err {domain, text, loc, errloc};
-        err.path = _path;
-        err.fix = fix;
-        _errors.push_back(err);
-    }
-    void Parser::warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
-        Error err {Error::warning, text, loc, errloc};
-        err.fix = fix;
-        err.isWarning = true;
-        _errors.push_back(err);
-    }
     void Parser::reset() {
         _errors.clear();
         index = 0;
@@ -61,8 +50,8 @@ namespace Floral {
     Token Parser::match(TokenType type, const std::string& withinCtx, const std::string& fix) {
         if (eof()) {
             index--;
-            report(Error::parseDomain, "Unexpected end of file", TextRegion(current()), { current().pos(), current().contents.size() });
-            return { {current().pos(), current().contents.size()}, TokenType::invalid, "" };
+            report(Error::parseDomain, "Unexpected end of file", current().loc.filename, TextRegion(current()), { current().pos(), current().contents.size() });
+            return { current().loc, TokenType::invalid, "" };
         }
         if (current().type == type) {
             Token t { current() };
@@ -72,11 +61,12 @@ namespace Floral {
         report(
                Error::parseDomain,
                "Expected " + tokenTypeDescription(type) + " but received " + tokenTypeDescription(current().type) + withinCtx,
+               current().loc.filename,
                TextRegion(current()),
                { current().pos(), current().contents.size() },
                fix
         );
-        return { {current().pos(), current().contents.size()}, TokenType::invalid, "" };
+        return { current().loc, TokenType::invalid, "" };
     }
     void Parser::synchronize() {
         _synchr_count++;
@@ -99,6 +89,7 @@ namespace Floral {
         report(
                Error::parseDomain,
                current().contents + " is not a declarator",
+               current().loc.filename,
                {current()},
                { current().pos(), current().contents.size() },
                fix
@@ -139,9 +130,9 @@ namespace Floral {
             return t;
         }
         switch (current().type) {
-            case TokenType::andOp:
+            case TokenType::bit_and:
                 pacman();
-                if (current().isType() || current().type == TokenType::leftParenthesis || current().type == TokenType::leftBracket || current().type == TokenType::andOp || current().type == TokenType::const_ || current().type == TokenType::struct_) {
+                if (current().isType() || current().type == TokenType::leftParenthesis || current().type == TokenType::leftBracket || current().type == TokenType::bit_and || current().type == TokenType::const_ || current().type == TokenType::struct_) {
                     auto t = type();
                     return new Type(t, true, isConst);
                 } else {
@@ -173,6 +164,7 @@ namespace Floral {
                         report(
                                Error::parseDomain,
                                "Tuples must be less than " + std::to_string(MAX_TUPLE_SIZE) + " in length",
+                               current().loc.filename,
                                TextRegion(current()),
                                { current().pos(), current().contents.size() }
                         );
@@ -207,6 +199,7 @@ namespace Floral {
                 report(
                        Error::parseDomain,
                        "Unknown type signature",
+                       current().loc.filename,
                        TextRegion(current()),
                        { current().pos(), current().contents.size() },
                        fix
@@ -326,6 +319,7 @@ namespace Floral {
             report(
                    Error::parseDomain,
                    "Unexpected token at end of function parameters",
+                   current().loc.filename,
                    { current(), current() },
                    { current().pos(), current().contents.size() },
                    "Try inserting a colon: ': " + current().contents + '\''
@@ -341,6 +335,7 @@ namespace Floral {
                 report(
                        Error::parseDomain,
                        "Something wrong with function body - cannot parse statement",
+                       current().loc.filename,
                        { start, current() },
                        { current().pos(), current().contents.size() }
                 );
@@ -377,6 +372,7 @@ namespace Floral {
             report(
                    Error::parseDomain,
                    "Global constant declaration missing initializer",
+                   start.loc.filename,
                    { start, current() },
                    { current().pos(), current().contents.size() }
             );
@@ -387,6 +383,7 @@ namespace Floral {
             report(
                    Error::parseDomain,
                    "Cannot zero initialize a global constant without a type specifier",
+                   start.loc.filename,
                    { start, current() },
                    { current().pos(), current().contents.size() }
             );
@@ -416,7 +413,7 @@ namespace Floral {
                     if (current().contents == name.contents) {
                         constructors.push_back(structConstr());
                     } else {
-                        report(Error::parseDomain, "Unexpected identifier in function body", { current() }, { current().pos(), current().contents.size() });
+                        report(Error::parseDomain, "Unexpected identifier in function body", current().loc.filename, { current() }, { current().pos(), current().contents.size() });
                         return nullptr;
                     }
                     break;
@@ -425,7 +422,7 @@ namespace Floral {
                     if (auto func = dynamic_cast<Function*>(decl)) {
                         functionMembers.push_back(func);
                     } else {
-                        report(Error::parseDomain, "Function forward declarations are not allowed within a struct body", decl->_loc, { decl->_loc.pos, 4 });
+                        report(Error::parseDomain, "Function forward declarations are not allowed within a struct body", decl->_loc.path, decl->_loc, { decl->_loc.pos, 4 });
                         return nullptr;
                     }
                     break;
@@ -474,6 +471,13 @@ namespace Floral {
                 case TokenType::macro:
                     pacman();
                     break;
+                case TokenType::typealias: {
+                    if (auto ta = typealias()) {
+                        ta->alias().contents.insert(0, name.contents + NAMESPACE_DELIMITER);
+                    } else {
+                        synchronize();
+                    }
+                }
                 case TokenType::func: {
                     if (auto decl = function()) {
                         if (auto func = dynamic_cast<Function*>(decl)) {
@@ -527,6 +531,7 @@ namespace Floral {
             report(
                    Error::parseDomain,
                    "Local constant statement missing initializer",
+                   start.loc.filename,
                    { start, current() },
                    { store.pos(), store.contents.size() }
             );
@@ -537,6 +542,7 @@ namespace Floral {
             report(
                    Error::parseDomain,
                    "Cannot zero initialize a local constant without a type specifier",
+                   start.loc.filename,
                    { start, current() },
                    { current().pos(), current().contents.size() }
             );
@@ -570,6 +576,7 @@ namespace Floral {
             report(
                    Error::parseDomain,
                    "Cannot zero initialize a local variable without a type specifier",
+                   start.loc.filename,
                    { start, current() },
                    { current().pos(), current().contents.size() }
             );
@@ -639,7 +646,7 @@ namespace Floral {
                     }
                     return new ExpressionStatement({ start, end }, assignTo);
                 }
-                report(Error::parseDomain, "Unexpected expression", { start, current() }, { start.pos(), current().pos() - start.pos() });
+                report(Error::parseDomain, "Unexpected expression", start.loc.filename, { start, current() }, { start.pos(), current().pos() - start.pos() });
                 return nullptr;
             }
         }
@@ -937,6 +944,7 @@ namespace Floral {
                 report(
                        Error::parseDomain,
                        "Something wrong with block body - cannot parse a statement",
+                       start.loc.filename,
                        { start, current() },
                        { current().pos(), current().contents.size() }
                 );
@@ -1001,6 +1009,7 @@ namespace Floral {
                         report(
                                Error::parseDomain,
                                "Expected identifier in using directive",
+                               start.loc.filename,
                                { start, current() },
                                { current().pos(), current().contents.size() }
                         );
@@ -1012,8 +1021,8 @@ namespace Floral {
                     } else {
                         if (id.contents == "stdlib") {
                             _use.push_back(Use::stl);
-                        } else if (id.contents == "C") {
-                            _use.push_back(Use::C);
+                        } else if (id.contents == "libc") {
+                            _use.push_back(Use::libc);
                         }
                     }
                     break;
@@ -1054,7 +1063,7 @@ namespace Floral {
                         if (std::find_if(Type::typealiases.begin(), Type::typealiases.end(), [ta](auto pair){
                             return pair.first == ta->alias().contents;
                         }) != Type::typealiases.end()) {
-                            report(Error::parseDomain, "Realiasing of synonym " + ta->alias().contents + " to different type", ta->_loc, { ta->alias().pos(), ta->alias().contents.size() });
+                            report(Error::parseDomain, "Realiasing of synonym " + ta->alias().contents + " to different type", ta->_loc.path, ta->_loc, { ta->alias().pos(), ta->alias().contents.size() });
                             break;
                         }
                         Type::typealiases.insert({ ta->alias().contents, ta->aliased() });

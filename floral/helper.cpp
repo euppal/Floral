@@ -7,7 +7,7 @@
 //
 
 #include "driver.hpp"
-ColoredStream out;
+ColoredStream out(std::cout);
 
 void title(const std::string& str) {
     out << Color::magenta << Color::bold << str << Color::reset << '\n';
@@ -44,7 +44,7 @@ void print(const std::string& str) {
     out << str;
 }
 
-int compile(CmdFile& infile, const CommandParser& cmdParser, v2::Compiler& compiler, std::set<std::string>& libs) {
+int compile(CmdFile& infile, const CommandParser& cmdParser, Compiler& compiler, std::set<std::string>& libs) {
     if (cmdParser.printNotRunCmds()) {
         while (infile.first.back() != '.') {
             infile.first.pop_back();
@@ -67,12 +67,12 @@ int compile(CmdFile& infile, const CommandParser& cmdParser, v2::Compiler& compi
     }
 
     // Lexing
-    Lexer lexer { result };
+    v2::Lexer lexer { result, infile.first, cmdParser };
 
     // Tokens into vector
     std::vector<Token> tokens {lexer.lex()};
     //for (const auto &tkn: tokens) tkn.print();
-    result = lexer.code;
+    result = lexer.preprocessor().source();
     if (cmdParser.catSource()) {
         std::cout << result << '\n';
     }
@@ -102,8 +102,8 @@ int compile(CmdFile& infile, const CommandParser& cmdParser, v2::Compiler& compi
             case Use::stl:
                 libs.insert("stl");
                 break;
-            case Use::C:
-                libs.insert("C");
+            case Use::libc:
+                libs.insert("libc");
                 break;
             default:
                 break;
@@ -148,7 +148,7 @@ int compile(CmdFile& infile, const CommandParser& cmdParser, v2::Compiler& compi
     return 0;
 }
 
-void make_objfile(std::vector<std::string>& objfiles, CmdFile& infile, const v2::Compiler& compiler, const CommandParser& cmdParser) {
+void make_objfile(std::vector<std::string>& objfiles, CmdFile& infile, const Compiler& compiler, const CommandParser& cmdParser) {
     if (infile.second == CmdFileExt::nasm) {
         std::string objfile { infile.first };
         objfile.erase(objfile.end() - 4, objfile.end());

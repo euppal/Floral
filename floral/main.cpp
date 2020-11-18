@@ -26,12 +26,15 @@ int main(int argc, const char* argv[]) {
     Floral::CommandParser commandParser (
         { argc, argv }
     );
-    driver(commandParser);
+    //driver(commandParser);
 
-//    Token::invalid = new Token({ 0, 0 }, TokenType::invalid, "");
-//    std::string buffer;
-//    read("/Users/ethanuppal/Library/Mobile Documents/com~apple~CloudDocs/Xcode Projects/floral/floral/proj/main.floral", buffer);
-//    Lexer lexer(buffer);
+    Token::invalid = new Token(TokenLoc::zero, TokenType::invalid, "");
+    std::string buffer;
+    read("/Users/ethanuppal/Library/Mobile Documents/com~apple~CloudDocs/Xcode Projects/floral/floral/proj/main.floral", buffer);
+    v2::Preprocessor preprocessor(buffer, "main.floral");
+    preprocessor.preprocess();
+    return_if_errors(preprocessor)
+    std::cout << preprocessor.preprocessedSource() << '\n';
 //    std::vector<Token> tokens = lexer.lex();
 //    for (const auto &tkn: tokens) tkn.print();
 //    return_if_errors(lexer);
@@ -42,7 +45,7 @@ int main(int argc, const char* argv[]) {
 //
 //    file->print();
 //    file->dump();
-//
-//    delete Token::invalid;
+    static_assert(alignof(int) == 4, "oh no!");
+    delete Token::invalid;
     return 0;
 }

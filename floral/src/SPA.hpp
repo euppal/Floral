@@ -18,10 +18,7 @@ namespace Floral {
     typedef std::pair<std::string, Function::Parameters> FunctionSignature;
 
     class StaticAnalyzer: public ErrorReporting {
-        friend class v2::Compiler;
-        
-        void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
-        void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+        friend class Compiler;
         
         std::string _path;
         int _warnUninit = true;
@@ -46,6 +43,7 @@ namespace Floral {
         bool isStaticEval(Expression* expr);
         Declaration* lookupFunction(const std::string& name, const Function::Parameters& params);
         Type* lookupRType(const std::string& name, const Function::Parameters& params);
+        Function* currentFunc();
         
         std::vector<Expression*> _typeTrace;
         

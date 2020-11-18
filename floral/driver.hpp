@@ -26,7 +26,7 @@ void annotated(const std::string& caption, const std::string& content);
 void execute(const std::string& cmd, const CommandParser& cmdParser);
 void print(const std::string& str);
 
-int compile(CmdFile& infile, const CommandParser& cmdParser, v2::Compiler& compiler, std::set<std::string>& libs);
-void make_objfile(std::vector<std::string>& objfiles, CmdFile& infile, const v2::Compiler& compiler, const CommandParser& cmdParser);
+int compile(CmdFile& infile, const CommandParser& cmdParser, Compiler& compiler, std::set<std::string>& libs);
+void make_objfile(std::vector<std::string>& objfiles, CmdFile& infile, const Compiler& compiler, const CommandParser& cmdParser);
 
 #endif /* test_hpp */

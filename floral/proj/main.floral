@@ -1,7 +1,3 @@
-#include <io.fh>
+#define eprint(str) print("Error: " #file ":" #str(#line) ": " str)
 
-func main(): Int {
-    std::buffered_print("Hey\n");
-    std::flush();
-    return 0;
-}
+eprint("Not enough doughnuts");

@@ -45,10 +45,10 @@ namespace Floral {
                 if (left && right) return (left->isNumber() && right->isNumber()) ? MOST_CONST(left, right) : nullptr;
                 return nullptr;
             }
-            case TokenType::andOp: {
+            case TokenType::bit_and: {
                 if (left && right) {
                     if (left->isNumber() && right->isNumber()) return MOST_CONST(left, right);
-                    else if (left->isBool() && right->isBool()) return new Type(new Token({ 0, 0 }, TokenType::boolType, "Bool"), CONSTEST(left, right));
+                    else if (left->isBool() && right->isBool()) return new Type(new Token(TokenLoc::zero, TokenType::boolType, "Bool"), CONSTEST(left, right));
                     else return nullptr;
                 }
                 if (!left && right) return new Type(right, true, right->isConst());
@@ -59,19 +59,19 @@ namespace Floral {
             case TokenType::greater:
             case TokenType::lessEqual:
             case TokenType::greaterEqual: {
-                if (left && right && *left == *right) return new Type(new Token({ 0, 0 }, TokenType::boolType, "Bool"), CONSTEST(left, right));
+                if (left && right && *left == *right) return new Type(new Token(TokenLoc::zero, TokenType::boolType, "Bool"), CONSTEST(left, right));
                 else return nullptr;
             }
-            case TokenType::orOp:
-            case TokenType::xorOp: {
+            case TokenType::bit_or:
+            case TokenType::bit_xor: {
                 if (left && right) (
                     (left->isNumber() && right->isNumber()) ||
                     (left->isBool() && right->isBool())
-                ) ? new Type(new Token({ 0, 0 }, TokenType::boolType, "Bool"), CONSTEST(left, right)) : nullptr;
+                ) ? new Type(new Token(TokenLoc::zero, TokenType::boolType, "Bool"), CONSTEST(left, right)) : nullptr;
             }
-            case TokenType::notOp:
-            case TokenType::inv: {
-                if (!left && right) return right->isBool() ? new Type(new Token({ 0, 0 }, TokenType::boolType, "Bool"), right->isConst()) : (right->isNumber() ? right : nullptr);
+            case TokenType::bool_not:
+            case TokenType::invert: {
+                if (!left && right) return right->isBool() ? new Type(new Token(TokenLoc::zero, TokenType::boolType, "Bool"), right->isConst()) : (right->isNumber() ? right : nullptr);
             }
             case TokenType::leftBracket: {
                 if (left && right) return (

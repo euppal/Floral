@@ -13,18 +13,6 @@
 #include "Colors.hpp"
 
 namespace Floral {
-    void StaticAnalyzer::report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
-        Error err {domain, text, loc, errloc};
-        err.fix = fix;
-        err.path = _path;
-        _errors.push_back(err);
-    }
-    void StaticAnalyzer::warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
-        Error err {Error::warning, text, loc, errloc};
-        err.fix = fix;
-        err.isWarning = true;
-        _warnings.push_back(err);
-    }
     bool StaticAnalyzer::hasErrors() const {
         return !_errors.empty();
     }
@@ -54,6 +42,17 @@ namespace Floral {
         }
         return t;
     }
+    Function* StaticAnalyzer::currentFunc() {
+        Function* f = nullptr;
+        for (auto iter = scopes.rbegin(); iter != scopes.rend(); iter++) {
+            if (iter->func) {
+                f = iter->func;
+                break;
+            }
+        }
+        return f;
+    }
+
 
     int StaticAnalyzer::analyze(const File *file) {
         _path = file->path();
@@ -75,15 +74,17 @@ namespace Floral {
                     report(
                            Error::typeDomain,
                            "Cannot return a value of type " + rtn->value()->type->des() + " in function returning " + scope().func->returnType()->des(),
+                           rtn->_loc.path,
                            rtn->_loc,
                            { rtn->_loc.pos, 0 }
                     );
                     return 1;
                 }
-            } else if (!scope().func->returnType()->isVoid()) {
+            } else if (!currentFunc()->returnType()->isVoid()) {
                 report(
                     Error::typeDomain,
                     "Expected return value in non-Void function",
+                    rtn->_loc.path,
                     rtn->_loc,
                     { rtn->_loc.pos + 6, 0 }
                 );
@@ -94,12 +95,13 @@ namespace Floral {
         } else if (auto exprStm = dynamic_cast<ExpressionStatement*>(stm)) {
             if (analyze(exprStm->expr()) != 0) return 1;
         } else if (auto ptrAssignStm = dynamic_cast<PointerAssignment*>(stm)) {
-            analyze(ptrAssignStm->ptrExpr());
-            analyze(ptrAssignStm->newValue());
+            if (analyze(ptrAssignStm->ptrExpr()) != 0) return 1;
+            if (analyze(ptrAssignStm->newValue()) != 0) return 1;
             if (!ptrAssignStm->ptrExpr()->type->isPointer()) {
                 report(
                        Error::typeDomain,
                        "Cannot perform pointer assignment to non-pointer type",
+                       ptrAssignStm->_loc.path,
                        ptrAssignStm->_loc,
                        { ptrAssignStm->_loc.pos, 0 },
                        "Maybe insert '&' before the left hand side expression"
@@ -110,6 +112,7 @@ namespace Floral {
                 report(
                        Error::typeDomain,
                        "Cannot assign to const value",
+                       ptrAssignStm->_loc.path,
                        ptrAssignStm->_loc,
                        { ptrAssignStm->ptrExpr()->_loc.pos, 0 },
                        "Try changing the declaration of the pointer's value to a variable"
@@ -120,6 +123,7 @@ namespace Floral {
                 report(
                        Error::typeDomain,
                        "Cannot assign value of type " + ptrAssignStm->newValue()->type->des() + " to pointer to value of type " + ptrAssignStm->ptrExpr()->type->_ptrType->des(),
+                       ptrAssignStm->_loc.path,
                        ptrAssignStm->_loc,
                        { ptrAssignStm->newValue()->_loc.pos, 0 }
                 );
@@ -132,6 +136,7 @@ namespace Floral {
                 report(
                        Error::typeDomain,
                        "Cannot assign to const value",
+                       assignStm->_loc.path,
                        assignStm->_loc,
                        { assignStm->lval()->_loc.pos, 0 },
                        "Try changing the declaration of the value to a variable"
@@ -142,6 +147,7 @@ namespace Floral {
                 report(
                        Error::typeDomain,
                        "Cannot assign value of type " + assignStm->rval()->type->des() + " to value of type " + assignStm->lval()->type->des(),
+                       assignStm->_loc.path,
                        assignStm->_loc,
                        { assignStm->rval()->_loc.pos, 0 }
                 );
@@ -153,6 +159,7 @@ namespace Floral {
                 report(
                        Error::typeDomain,
                        "If statement condition does not resolve to boolean (Cannot convert value of type " + ifStm->condition()->type->des() + " to Bool)",
+                       ifStm->_loc.path,
                        ifStm->_loc,
                        { ifStm->condition()->_loc.pos, 0 }
                 );
@@ -162,10 +169,11 @@ namespace Floral {
             if (analyze(whileStm->condition()) != 0) return 1;
             if (!whileStm->condition()->type->isBool()) {
                 report(
-                        Error::typeDomain,
-                        "While statement condition does not resolve to boolean",
-                        whileStm->_loc,
-                        { whileStm->condition()->_loc.pos, 0 }
+                       Error::typeDomain,
+                       "While statement condition does not resolve to boolean",
+                       whileStm->_loc.path,
+                       whileStm->_loc,
+                       { whileStm->condition()->_loc.pos, 0 }
                 );
             }
             analyze(whileStm->body());
@@ -175,10 +183,11 @@ namespace Floral {
             analyze(forStm->modify());
             if (!forStm->check()->type->isBool()) {
                 report(
-                        Error::typeDomain,
-                        "For statement check does not resolve to boolean",
-                        forStm->_loc,
-                        { forStm->check()->_loc.pos, 0 }
+                       Error::typeDomain,
+                       "For statement check does not resolve to boolean",
+                       forStm->_loc.path,
+                       forStm->_loc,
+                       { forStm->check()->_loc.pos, 0 }
                 );
             }
             analyze(forStm->body());
@@ -214,6 +223,7 @@ namespace Floral {
                                        report(
                                               Error::typeDomain,
                                               "Expression resolves to type different from type declared in let statement",
+                                              let->_loc.path,
                                               let->_loc,
                                               { let->_loc.pos, 0 }
                                        );
@@ -230,6 +240,7 @@ namespace Floral {
                                report(
                                       Error::resolutionDomain,
                                        "Invalid redeclaration of '" + let->name().contents + "'",
+                                      let->_loc.path,
                                       let->_loc,
                                       { let->_loc.pos + 3, let->name().contents.size() }
                                );
@@ -253,6 +264,7 @@ namespace Floral {
                                        report(
                                               Error::typeDomain,
                                               "Expression resolves to type different from type declared in let declaration",
+                                              let->_loc.path,
                                               let->_loc,
                                               { let->_loc.pos, 0 }
                                        );
@@ -269,6 +281,7 @@ namespace Floral {
                                report(
                                       Error::resolutionDomain,
                                        "Invalid redeclaration of '" + let->name().contents + "'",
+                                      let->_loc.path,
                                       let->_loc,
                                       { let->_loc.pos + 4, let->name().contents.size() }
                                );
@@ -283,6 +296,7 @@ namespace Floral {
                    if (!init) {
                        if (_warnUninit) warn(
                             "Variable is uninitialized",
+                            var->_loc.path,
                             var->_loc,
                             { var->_loc.pos + var->_loc.length - 1, 0 },
                             "Initialize the variable to silence this warning"
@@ -310,6 +324,7 @@ namespace Floral {
                                report(
                                       Error::typeDomain,
                                       "Cannot assign a const type to a variable",
+                                      var->_loc.path,
                                       var->_loc,
                                       { var->_loc.pos, 0 }
                                );
@@ -324,8 +339,9 @@ namespace Floral {
                                        report(
                                               Error::typeDomain,
                                               "Expression resolves to type different from type declared in let declaration",
-                                              let->_loc,
-                                              { let->_loc.pos, 0 }
+                                              var->_loc.path,
+                                              var->_loc,
+                                              { var->_loc.pos, 0 }
                                        );
                                    }
                                }
@@ -336,6 +352,7 @@ namespace Floral {
                                report(
                                       Error::resolutionDomain,
                                        "Invalid redeclaration of '" + var->name().contents + "'",
+                                      var->_loc.path,
                                       var->_loc,
                                       { var->_loc.pos + 3, var->name().contents.size() }
                                );
@@ -359,6 +376,7 @@ namespace Floral {
                                        report(
                                               Error::typeDomain,
                                               "Expression resolves to type different from type declared in let declaration",
+                                              var->_loc.path,
                                               var->_loc,
                                               { var->_loc.pos, 0 }
                                        );
@@ -371,6 +389,7 @@ namespace Floral {
                                report(
                                       Error::resolutionDomain,
                                        "Invalid redeclaration of '" + var->name().contents + "'",
+                                      var->_loc.path,
                                       var->_loc,
                                       { var->_loc.pos + 3, var->name().contents.size() }
                                );
@@ -439,6 +458,7 @@ namespace Floral {
                 report(
                        Error::resolutionDomain,
                        "Invalid redeclaration of '" + func->name().contents + "'",
+                       func->_loc.path,
                        func->_loc,
                        { func->name().pos(), func->name().contents.size() }
                 );
@@ -451,7 +471,7 @@ namespace Floral {
                 scope().insert(param.name.contents, param.type, nullptr);
             }
             if (func->returnType()->isIncomplete()) {
-                func->setRType(new Type(new Token({0,0}, TokenType::voidType, "Void"), true));
+                func->setRType(new Type(new Token(TokenLoc::zero, TokenType::voidType, "Void"), true));
             }
             if (func->returnType()->isVoid() && (!func->body().empty() ? !dynamic_cast<ReturnStatement*>(func->body().back()) : true)) {
                 func->insert(new ReturnStatement({ func->_loc.pos + func->_loc.length - 1, 0, func->_loc.endLine, func->_loc.endLine }, nullptr));
@@ -460,9 +480,13 @@ namespace Floral {
                 if (auto stm = dynamic_cast<Statement*>(node)) {
                     if (analyze(stm) != 0) return 1;
                     if (auto let = dynamic_cast<LetStatement*>(stm)) {
-                        func->staticAllocationSize += let->type()->alignment();
+                        #define cond (let->type()->isArray() && let->initializer()->type == Initializer::InitializerType::zero)
+                        if (!cond) func->staticAllocationSize += let->type()->alignment();
+                        #undef cond
                     } else if (auto var = dynamic_cast<VarStatement*>(stm)) {
-                        func->staticAllocationSize += var->type()->alignment();
+                        #define cond (var->type()->isArray() && var->initializer()->type == Initializer::InitializerType::zero)
+                        if (!cond) func->staticAllocationSize += var->type()->alignment();
+                        #undef cond
                     } else if (auto block = dynamic_cast<Block*>(stm)) {
                         func->staticAllocationSize += block->size();
                     } else if (auto forStm = dynamic_cast<ForStatement*>(stm)) {
@@ -478,6 +502,7 @@ namespace Floral {
                 report(
                        Error::resolutionDomain,
                        "Invalid redeclaration of '" + ffunc->name().contents + "'",
+                       ffunc->_loc.path,
                        ffunc->_loc,
                        { ffunc->name().pos(), ffunc->name().contents.size() }
                 );
@@ -486,13 +511,14 @@ namespace Floral {
                 functionForwardDeclSymbolTable[strFromFunctionSignature({ffunc->name().contents, ffunc->parameters()})] = ffunc;
             }
             if (ffunc->returnType()->isIncomplete()) {
-                ffunc->setRType(new Type(new Token({0,0}, TokenType::voidType, "Void"), true));
+                ffunc->setRType(new Type(new Token(TokenLoc::zero, TokenType::voidType, "Void"), true));
             }
         } else if (auto gbl = dynamic_cast<GlobalDeclaration*>(decl)) {
             if (globalSymbolTable[gbl->name.contents]) {
                 report(
                        Error::resolutionDomain,
                        "Invalid redeclaration of '" + gbl->name.contents + "'",
+                       gbl->_loc.path,
                        gbl->_loc,
                        { gbl->name.pos(), gbl->name.contents.size() }
                 );
@@ -508,7 +534,7 @@ namespace Floral {
                 gbl->info.isStaticEval = isStaticEval(initexpr);
                 if (analyze(initexpr) != 0) return 1;
                 if (!gbl->info.isStaticEval) {
-                    report(Error::compileDomain, "Global constant expression could not be statically evaluated", gbl->_loc, { initexpr->_loc.pos, initexpr->_loc.length });
+                    report(Error::compileDomain, "Global constant expression could not be statically evaluated", gbl->_loc.path, gbl->_loc, { initexpr->_loc.pos, initexpr->_loc.length });
                     return 1;
                 }
                 Type* declaredType { gbl->type };
@@ -520,6 +546,7 @@ namespace Floral {
                             report(
                                    Error::typeDomain,
                                    "Expression resolves to type different from type declared in global declaration",
+                                   gbl->_loc.path,
                                    gbl->_loc,
                                    { initexpr->_loc.pos, 0 }
                             );
@@ -534,7 +561,7 @@ namespace Floral {
                 gbl->info.isStaticEval = isStaticEval(initexpr);
                 if (analyze(initexpr) != 0) return 1;
                 if (!gbl->info.isStaticEval) {
-                    report(Error::compileDomain, "Global constant expression could not be statically evaluated", gbl->_loc, { initexpr->_loc.pos, initexpr->_loc.length });
+                    report(Error::compileDomain, "Global constant expression could not be statically evaluated", gbl->_loc.path, gbl->_loc, { initexpr->_loc.pos, initexpr->_loc.length });
                     return 1;
                 }
                 if (analyze(initexpr) != 0) return 1;
@@ -544,6 +571,7 @@ namespace Floral {
                         report(
                                Error::typeDomain,
                                "Expression resolves to type different from type declared in global declaration",
+                               gbl->_loc.path,
                                gbl->_loc,
                                { initexpr->_loc.pos, 0 }
                         );
@@ -558,6 +586,7 @@ namespace Floral {
                 report(
                        Error::resolutionDomain,
                        "Invalid redeclaration of '" + fgbl->name().contents + "'",
+                       fgbl->_loc.path,
                        fgbl->_loc,
                        { fgbl->name().pos(), fgbl->name().contents.size() }
                 );
@@ -609,7 +638,7 @@ namespace Floral {
     }
 
     void StaticAnalyzer::dumpTypeTrace() const {
-        ColoredStream out;
+        ColoredStream out(std::cerr);
         out.resetAutomatically = false;
         out << Color::blue << Color::bold << "Static Analyzer: Type Trace" << Color::reset << "\n----------------------------\n";
         for (Expression* expr: _typeTrace) {
@@ -688,17 +717,22 @@ namespace Floral {
                         return call->name.contents == func->name().contents;
                     });
                     if (iter != structType->functionMembers().end()) {
-                        call->_spa_params = (*iter)->parameters();
+                        for (auto param: (*iter)->parameters()) {
+                            call->_spa_params.push_back(Function::Parameter(param.name, nullptr));
+                            call->_spa_params.back().type = (Type*)malloc(sizeof(Type));
+                            memcpy((void*)call->_spa_params.back().type, (const void*)param.type, sizeof(Type));
+                        }
                         return const_cast<Type*>((*iter)->returnType());
                     } else {
                         return nullptr;
                     }
                 } else {
                     report(
-                        Error::typeDomain,
-                        "Attempted to perform member access on non-struct data type",
-                        binaryExpression->op()->_loc,
-                        { binaryExpression->op()->_loc.pos, 0 }
+                           Error::typeDomain,
+                           "Attempted to perform member access on non-struct data type",
+                           binaryExpression->_loc.path,
+                           binaryExpression->op()->_loc,
+                           { binaryExpression->op()->_loc.pos, 0 }
                     );
                     return nullptr;
                 }
@@ -715,6 +749,7 @@ namespace Floral {
                 report(
                        Error::typeDomain,
                        "No such overload exists for the operation " + binaryExpression->op()->tkn().contents,
+                       expr->_loc.path,
                        expr->_loc,
                        { expr->_loc.pos, 0 }
                 );
@@ -723,44 +758,44 @@ namespace Floral {
         } else if (Literal* literal = dynamic_cast<Literal*>(expr)) {
             switch (literal->type()) {
                 case Literal::LType::boolean: {
-                    return new Type(new Token({0,0}, TokenType::boolType, "Bool"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::boolType, "Bool"), true);
                 }
                 case Literal::LType::decimalInteger:
                 case Literal::LType::hexadecimalInteger: {
-                    return new Type(new Token({0,0}, TokenType::int64Type, "Int"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::int64Type, "Int64"), true);
                 }
                 case Literal::LType::decimalByte: {
-                    return new Type(new Token({0,0}, TokenType::charType, "Char"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::charType, "Char"), true);
                 }
                 case Literal::LType::decimalWideChar: {
-                    return new Type(new Token({0,0}, TokenType::wideCharType, "WideChar"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::wideCharType, "WideChar"), true);
                 }
                 case Literal::LType::decimalShort: {
-                    return new Type(new Token({0,0}, TokenType::shortType, "Short"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::shortType, "Short"), true);
                 }
                 case Literal::LType::decimalInt32: {
-                    return new Type(new Token({0,0}, TokenType::int32Type, "Int32"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::int32Type, "Int32"), true);
                 }
                 case Literal::LType::decimalUInteger: {
-                    return new Type(new Token({0,0}, TokenType::uint64Type, "UInt"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::uint64Type, "UInt64"), true);
                 }
                 case Literal::LType::decimalUByte: {
-                    return new Type(new Token({0,0}, TokenType::ucharType, "UChar"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::ucharType, "UChar"), true);
                 }
                 case Literal::LType::decimalWideUChar: {
-                    return new Type(new Token({0,0}, TokenType::wideUCharType, "WideUChar"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::wideUCharType, "WideUChar"), true);
                 }
                 case Literal::LType::decimalUShort: {
-                    return new Type(new Token({0,0}, TokenType::ushortType, "UShort"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::ushortType, "UShort"), true);
                 }
                 case Literal::LType::decimalUInt32: {
-                    return new Type(new Token({0,0}, TokenType::uint32Type, "UInt32"), true);
+                    return new Type(new Token(literal->value().loc, TokenType::uint32Type, "UInt32"), true);
                 }
                 case Literal::LType::cString: {
-                    return new Type(new Type(new Token({0,0}, TokenType::charType, "Char"), true), literal->value().contents.size() + 1, true);
+                    return new Type(new Type(new Token(literal->value().loc, TokenType::charType, "Char"), true), literal->value().contents.size() + 1, true);
                 }
                 case Literal::LType::wideString: {
-                    return new Type(new Type(new Token({0,0}, TokenType::wideCharType, "WideChar"), true), literal->value()._wstr.size() + 1, true);
+                    return new Type(new Type(new Token(literal->value().loc, TokenType::wideCharType, "WideChar"), true), literal->value()._wstr.size() + 1, true);
                 }
                 default:
                     break;
@@ -773,6 +808,7 @@ namespace Floral {
                     report(
                            Error::resolutionDomain,
                            "The symbol '" + symbol->value().contents + "' could not be found",
+                           symbol->_loc.path,
                            symbol->_loc,
                            { symbol->_loc.pos, 0 },
                            "Try declaring or defining the symbol with a global, let or var to silence this error"
@@ -791,12 +827,17 @@ namespace Floral {
                     arg->type
                 });
             }
-            call->_spa_params = argtypes;
+            for (auto param: argtypes) {
+                call->_spa_params.push_back(Function::Parameter(param.name, nullptr));
+                call->_spa_params.back().type = (Type*)malloc(sizeof(Type));
+                memcpy((void*)call->_spa_params.back().type, (const void*)param.type, sizeof(Type));
+            }
             Type* r = lookupRType(call->name.contents, argtypes);
             if (!r) {
                 report(
                        Error::resolutionDomain,
                        "No function '" + call->generateTypeDescription() + "' exists",
+                       call->_loc.path,
                        call->_loc,
                        { call->_loc.pos, 0 },
                        "Try forward-declaring or defining the function silence this error"
@@ -804,13 +845,14 @@ namespace Floral {
             }
             return r;
         } else if (SizeOfType* sizeofexpr = dynamic_cast<SizeOfType*>(expr)) {
-            return new Type(new Token({0,0}, TokenType::int64Type, "Int"), true);
+            return new Type(new Token(TokenLoc::zero, TokenType::int64Type, "Int64"), true);
         } else if (UnsafeCast* unsafecast = dynamic_cast<UnsafeCast*>(expr)) {
             analyze(unsafecast->expr());
             if (unsafecast->expr()->type->size() != unsafecast->type()->size()) {
                 report(
                        Error::typeDomain,
                        "Cannot cast between types of different sizes",
+                       unsafecast->_loc.path,
                        unsafecast->_loc,
                        { unsafecast->_loc.pos + 12, 0 }
 
@@ -828,7 +870,7 @@ namespace Floral {
             for (auto val: arraylit->values()) {
                 if (analyze(val) != 0) return nullptr;
                 if (!(*t == *val->type)) {
-                    report(Error::typeDomain, "Mismatching element types in array literal", arraylit->_loc, { val->_loc.pos, 0 });
+                    report(Error::typeDomain, "Mismatching element types in array literal", arraylit->_loc.path, arraylit->_loc, { val->_loc.pos, 0 });
                     return nullptr;
                 }
             }

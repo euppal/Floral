@@ -15,23 +15,12 @@
 #define CAT_COMMENTS(opleft, opright) if (!((opleft)->comment.empty() || (opright)->comment.empty())) (opleft)->comment += " && " + (opright)->comment
 #define INSRT_COMMENTS(opleft, opright) if (!((opleft)->comment.empty() || (opright)->comment.empty())) (opleft)->comment = (opright)->comment + " && " + (opleft)->comment
 
-namespace Floral { namespace v2 {
+namespace Floral {
     // MARK: Constructor/Deinitializer
     Compiler::Compiler(): textSection(SectionType::text), bssSection(SectionType::bss), rodataSection(SectionType::rodata), dataSection(SectionType::data) {}
     Compiler::~Compiler() {}
 
     // MARK: Error and utility
-    void Compiler::report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
-        Error err {domain, text, loc, errloc};
-        err.fix = fix;
-        _errors.push_back(err);
-    }
-    void Compiler::warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
-        Error err {Error::warning, text, loc, errloc};
-        err.fix = fix;
-        err.isWarning = true;
-        _errors.push_back(err);
-    }
     bool Compiler::hasErrors() const {
         return !_errors.empty() || analyzer.hasErrors();
     }
@@ -905,7 +894,7 @@ namespace Floral { namespace v2 {
                             } 
                         }
                     }
-                    case TokenType::andOp: {
+                    case TokenType::bit_and: {
                         if (left && right) emitBinaryExpr(left, right, OpType::and_);
                         else if (!left && right) {
                             if (auto symbol = dynamic_cast<SymbolExpression*>(right)) {
@@ -1059,12 +1048,12 @@ namespace Floral { namespace v2 {
                         }
                         break;
                     }
-                    case TokenType::inv: {
+                    case TokenType::invert: {
                         const Location loc = emitExpression(right);
                         emit(new NotOperation(loc, "bitwise not"), SectionType::text);
                         return loc;
                     }
-                    case TokenType::notOp: {
+                    case TokenType::bool_not: {
                         return emitCondition(expr).first;
                     }
                     case TokenType::equal: {
@@ -1236,11 +1225,12 @@ namespace Floral { namespace v2 {
                 loc.isDereference = d;
                 const Register resultr = static_cast<Register>(frames.back().avaliableScratch());
                 if (loc.isLbl) {
-                    if (wantsAddressResult) {
-                        emit(new LoadAddressOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
-                    } else {
-                        emit(new MoveOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
-                    }
+                    emit(new LoadAddressOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
+//                    if (wantsAddressResult) {
+//                        
+//                    } else {
+//                        emit(new MoveOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
+//                    }
                 } else {
                     emit(new MoveOperation(RegisterLocation(resultr), loc, OPSIZE_FROM_NUM(result.first.size), "store " + result.first.name + " in " + registerNames[static_cast<int>(resultr)]), SectionType::text);
                 }
@@ -1365,7 +1355,7 @@ namespace Floral { namespace v2 {
             Expression* right = binary->right();
             
             switch (binary->op()->tkntype()) {
-                case TokenType::notOp: {
+                case TokenType::bool_not: {
                     if (left && !right) {
                         assert(false && "Improper overloading test in SPA");
                     }
@@ -1658,7 +1648,7 @@ namespace Floral { namespace v2 {
         
         const std::string nameOfMain = analyzer.strFromFunctionSignature({main->name().contents, main->parameters()});
         if (!(nameOfMain == "main" || nameOfMain == "main_i32_u")) {
-            report(Error::resolutionDomain, "Cannot find function main(Int32, &&Char)", main->_loc, { main->_name.pos(), main->_name.contents.size() });
+            report(Error::resolutionDomain, "Cannot find function main(Int32, &&Char)", main->_loc.path, main->_loc, { main->_name.pos(), main->_name.contents.size() });
         }
         
         emit(new SubOperation(RegisterLocation(Register::rsp), NumLL(false, SU(8LLU)), "@ so stack is aligned upon calls"), SectionType::text); // align stack to 16 bytes
@@ -2078,7 +2068,7 @@ namespace Floral { namespace v2 {
         analyzer.analyze(file); // perform static analysis to gain control flow and type information
         if (_showTypeTrace) analyzer.dumpTypeTrace();
         
-        ColoredStream out;
+        ColoredStream out(std::cerr);
         if (analyzer.hasWarnings() || analyzer.hasErrors()) {
             out << Color::blue << Color::bold << "Analyzer Output" << Color::reset << "\n---------------\n";
         }
@@ -2116,9 +2106,10 @@ namespace Floral { namespace v2 {
                 report(
                        Error::compileDomain,
                        "An expression cannot be a top-level declaration",
+                       node->_loc.path,
                        node->_loc,
                        { node->_loc.pos, 0 }
-                       );
+                );
                 return;
             }
         }
@@ -2210,4 +2201,4 @@ namespace Floral { namespace v2 {
             }
         }
     }
-}}
+}

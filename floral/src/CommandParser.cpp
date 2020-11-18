@@ -11,7 +11,7 @@
 namespace Floral {
     std::unordered_map<std::string, std::string> libmap {
         { "stl", FLORAL_OBJ(std) },
-        { "C", FLORAL_OBJ(cbridge) }
+        { "libc", FLORAL_OBJ(cbridge) }
     };
     std::string liblocFromName(const std::string& name) {
         return libmap.find(name)->second;
@@ -30,7 +30,7 @@ namespace Floral {
 
     CommandParser::CommandParser(Command command) {
         if (command.argc == 1) {
-            report(Error::parseDomain, "No input files", { 0, 0, 0, 0}, { 0, 0 });
+            report(Error::parseDomain, "No input files", "", { 0, 0, 0, 0 }, { 0, 0 });
             return;
         }
         
@@ -57,7 +57,7 @@ namespace Floral {
                         opt = view;
                         _optimization = atoi(opt.c_str());
                         if (_optimization > 3) {
-                            report(Error::parseDomain, "Unknown optimization level", { 0, 0, 0, 0} , { 0, 0 });
+                            report(Error::parseDomain, "Unknown optimization level", "args", { 0, 0, 0, 0} , { 0, 0 });
                         }
                     } else {
                         _optimization = 1;
@@ -70,7 +70,7 @@ namespace Floral {
                     libs.insert(arg + 2);
                 } else if (strncmp(arg + 1, "o", 2) == 0) {
                     if (!_outfile.first.empty()) {
-                        report(Error::parseDomain, "Cannot specify two target locations", { 0, 0, 0, 0 }, { 0, 0 });
+                        report(Error::parseDomain, "Cannot specify two target locations", "args", { 0, 0, 0, 0 }, { 0, 0 });
                     }
                     index++; command.argc--;
                     _outfile = {
@@ -112,12 +112,12 @@ namespace Floral {
         }
     }
 
-    void CommandParser::report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
+    void CommandParser::report(Error::Domain domain, const std::string& text, const std::string& path, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
         Error err {domain, text, loc, errloc};
         err.fix = fix;
         _errors.push_back(err);
     }
-    void CommandParser::warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
+    void CommandParser::warn(const std::string& text, const std::string& path, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
         Error err {Error::warning, text, loc, errloc};
         err.fix = fix;
         err.isWarning = true;
@@ -149,7 +149,7 @@ namespace Floral {
         return _optimization;
     }
     const int CommandParser::usingCBridge() const {
-        return libs.find("C") != libs.end();
+        return libs.find("libc") != libs.end();
     }
     const int CommandParser::usingSTL() const {
         return libs.find("stl") != libs.end();

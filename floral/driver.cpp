@@ -45,7 +45,7 @@ void driver(CommandParser& commandParser) {
     
     const std::string outfile { commandParser.outfile().first };
 
-    v2::Compiler compiler;
+    Compiler compiler;
 
     Timer t;
     t.reset();
@@ -76,7 +76,7 @@ void driver(CommandParser& commandParser) {
     ON_VERBOSE heading2("\nModifiers", (std::string)(commandParser.usingSTL() ? "[link standard lib] " : "") + (commandParser.usingCBridge() ? "[link C bridge] " : ""));
     
     std::vector<std::string> objfiles {
-        FLORAL_OBJ(core)
+        FLORAL_RUNTIME(core)
     };
     for (auto &lib: libs) {
         objfiles.push_back(liblocFromName(lib));

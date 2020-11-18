@@ -14,7 +14,7 @@ ColoredStream& operator <<(ColoredStream& stream, Color color) {
         stream.foreground = 0;
         stream.background = 0;
         stream.isBold = false;
-        std::cout << COLOR_CODE_RESET;
+        stream.cout << COLOR_CODE_RESET;
         return stream;
     }
     else if (color == Color::bold) {
@@ -41,12 +41,12 @@ ColoredStream& operator <<(ColoredStream& stream, const std::string& str) {
         } else {
             code = "\e[" + std::to_string(stream.foreground) + (stream.isBold ? ";1m" : "m");
         }
-        std::cout << code;
+        stream.cout << code;
     }
         
-    std::cout << str;
+    stream.cout << str;
     if (stream.resetAutomatically) {
-        std::cout << COLOR_CODE_RESET;
+        stream.cout << COLOR_CODE_RESET;
         stream.foreground = 0;
         stream.background = 0;
     }
@@ -61,12 +61,12 @@ ColoredStream& operator <<(ColoredStream& stream, char c) {
         } else {
             code = "\e[" + std::to_string(stream.foreground) + (stream.isBold ? ";1m" : "m");
         }
-        std::cout << code;
+        stream.cout << code;
     }
         
-    std::cout << c;
+    stream.cout << c;
     if (stream.resetAutomatically) {
-        std::cout << COLOR_CODE_RESET;
+        stream.cout << COLOR_CODE_RESET;
         stream.foreground = 0;
         stream.background = 0;
     }

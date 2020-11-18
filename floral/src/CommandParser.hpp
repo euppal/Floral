@@ -16,11 +16,13 @@
 
 #define FLORAL_OBJS "/usr/local"
 #define FLORAL_SRCS "/usr/local/src"
+#define FLORAL_HDR(name) "~/Programming/floral-src/include/" #name ".fh"
 #define FLORAL_OBJ(name) "~/Programming/floral-src/stdlib/obj/" #name ".o"
+#define FLORAL_RUNTIME(name) "~/Programming/floral-src/runtime/" #name ".o"
 
 namespace Floral {
     enum class Use {
-        stl, C
+        stl, libc
     };
     std::string liblocFromName(const std::string& name);
     void setlibloc(const std::string& libloc, const std::string& name);
@@ -58,8 +60,8 @@ namespace Floral {
         uint32_t packed_options_0 {};
         
         std::vector<Error> _errors;
-        void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
-        void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+        void report(Error::Domain domain, const std::string& text, const std::string& path, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+        void warn(const std::string& text, const std::string& path, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
 
     public:
         CommandParser(Command command);

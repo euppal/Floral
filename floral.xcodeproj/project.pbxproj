@@ -11,10 +11,12 @@
 		581C5FC924FEBE7B00DEE9F6 /* Frame.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FC724FEBE7B00DEE9F6 /* Frame.cpp */; };
 		581C5FCB250007B900DEE9F6 /* driver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FCA250007B900DEE9F6 /* driver.cpp */; };
 		581C5FCE2501654900DEE9F6 /* Instruction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 581C5FCC2501654900DEE9F6 /* Instruction.cpp */; };
+		5841D3772562B3C7003C2244 /* Preprocessor v2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5841D3762562B3C7003C2244 /* Preprocessor v2.cpp */; };
 		5855A60F2530C96800704F70 /* helper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5855A60E2530C96800704F70 /* helper.cpp */; };
 		585FDC292523A5A600135392 /* Colors.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 585FDC282523A48300135392 /* Colors.cpp */; };
 		58626E3024C7630400564C58 /* SPA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58626E2E24C7630400564C58 /* SPA.cpp */; };
 		587D6CE9250969B900CD0E40 /* Compiler v2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 587D6CE8250969B900CD0E40 /* Compiler v2.cpp */; };
+		588615AB255EDA73008B695B /* Lexer v2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 588615A9255EDA73008B695B /* Lexer v2.cpp */; };
 		5894DFA024BE3EEB000C8E05 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8824BE3EDB000C8E05 /* main.cpp */; };
 		5894DFA124BE3EF8000C8E05 /* Sources.hpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8724BE3EDB000C8E05 /* Sources.hpp */; };
 		5894DFA224BE3F01000C8E05 /* Parser.hpp in Sources */ = {isa = PBXBuildFile; fileRef = 5894DF8A24BE3EDB000C8E05 /* Parser.hpp */; };
@@ -74,6 +76,7 @@
 		581C5FCC2501654900DEE9F6 /* Instruction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Instruction.cpp; sourceTree = "<group>"; };
 		581C5FCD2501654900DEE9F6 /* Instruction.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Instruction.hpp; sourceTree = "<group>"; };
 		581CAEF9253A2D64005235EE /* floral_cdef.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floral_cdef.h; sourceTree = "<group>"; };
+		5841D3762562B3C7003C2244 /* Preprocessor v2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "Preprocessor v2.cpp"; sourceTree = "<group>"; };
 		5855A60E2530C96800704F70 /* helper.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = helper.cpp; sourceTree = "<group>"; };
 		5855A6112530D46000704F70 /* Introduction.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Introduction.md; sourceTree = "<group>"; };
 		5855A6122530D5B500704F70 /* Hello World.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Hello World.md"; sourceTree = "<group>"; };
@@ -88,6 +91,9 @@
 		5878994A252E1A44000297CF /* hello.floral */ = {isa = PBXFileReference; lastKnownFileType = text; path = hello.floral; sourceTree = "<group>"; };
 		587D162524A9306100D20ED2 /* floralc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = floralc; sourceTree = BUILT_PRODUCTS_DIR; };
 		587D6CE8250969B900CD0E40 /* Compiler v2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "Compiler v2.cpp"; sourceTree = "<group>"; };
+		588615A7255ED9D2008B695B /* LexerKeywords.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LexerKeywords.h; sourceTree = "<group>"; };
+		588615A8255ED9D9008B695B /* LexerOperators.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LexerOperators.h; sourceTree = "<group>"; };
+		588615A9255EDA73008B695B /* Lexer v2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "Lexer v2.cpp"; sourceTree = "<group>"; };
 		5894DF8424BE3EDB000C8E05 /* config.floralattr */ = {isa = PBXFileReference; lastKnownFileType = text; path = config.floralattr; sourceTree = "<group>"; };
 		5894DF8624BE3EDB000C8E05 /* main.floral */ = {isa = PBXFileReference; lastKnownFileType = text; path = main.floral; sourceTree = "<group>"; };
 		5894DF8724BE3EDB000C8E05 /* Sources.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Sources.hpp; sourceTree = "<group>"; };
@@ -150,7 +156,6 @@
 				581C5FAA24FC1C5E00DEE9F6 /* Memory.md */,
 				581C5FAC24FC1C5E00DEE9F6 /* Floral Standard Library.md */,
 				581C5FAD24FC1C5E00DEE9F6 /* Floral Headers.md */,
-				581C5FAE24FC1C5E00DEE9F6 /* Start.md */,
 			);
 			path = docs;
 			sourceTree = "<group>";
@@ -236,6 +241,7 @@
 				585FDC282523A48300135392 /* Colors.cpp */,
 				585FDC272523A48300135392 /* Colors.hpp */,
 				5894DFB824BE604C000C8E05 /* Other.h */,
+				581C5FAE24FC1C5E00DEE9F6 /* Start.md */,
 				581C5F9A24FC17BC00DEE9F6 /* CommandParser.cpp */,
 				581C5F9B24FC17BC00DEE9F6 /* CommandParser.hpp */,
 				58626E2F24C7630400564C58 /* SPA.hpp */,
@@ -244,15 +250,19 @@
 				5894DF9B24BE3EDB000C8E05 /* Parser.cpp */,
 				5894DF9C24BE3EDB000C8E05 /* AST.hpp */,
 				5894DF8B24BE3EDB000C8E05 /* AST.cpp */,
+				5894DF9024BE3EDB000C8E05 /* Scope.hpp */,
+				5894DF9524BE3EDB000C8E05 /* Scope.cpp */,
 				5894DF8D24BE3EDB000C8E05 /* Type.hpp */,
 				5894DF9E24BE3EDB000C8E05 /* Type.cpp */,
 				5894DF8E24BE3EDB000C8E05 /* Token.hpp */,
 				5894DF9F24BE3EDB000C8E05 /* Token.cpp */,
 				5894DF9224BE3EDB000C8E05 /* File IO.hpp */,
 				5894DF9724BE3EDB000C8E05 /* File IO.cpp */,
-				5894DF9024BE3EDB000C8E05 /* Scope.hpp */,
-				5894DF9524BE3EDB000C8E05 /* Scope.cpp */,
 				5894DF9924BE3EDB000C8E05 /* Lexer.hpp */,
+				588615A9255EDA73008B695B /* Lexer v2.cpp */,
+				5841D3762562B3C7003C2244 /* Preprocessor v2.cpp */,
+				588615A7255ED9D2008B695B /* LexerKeywords.h */,
+				588615A8255ED9D9008B695B /* LexerOperators.h */,
 				5894DF9324BE3EDB000C8E05 /* Lexer.cpp */,
 				5894DF9424BE3EDB000C8E05 /* Error.hpp */,
 				5894DF8F24BE3EDB000C8E05 /* Error.cpp */,
@@ -333,6 +343,7 @@
 				5894DFA424BE3F01000C8E05 /* Compiler.cpp in Sources */,
 				5894DFA524BE3F01000C8E05 /* Type.hpp in Sources */,
 				5894DFA624BE3F01000C8E05 /* Token.hpp in Sources */,
+				5841D3772562B3C7003C2244 /* Preprocessor v2.cpp in Sources */,
 				5855A60F2530C96800704F70 /* helper.cpp in Sources */,
 				581C5FCB250007B900DEE9F6 /* driver.cpp in Sources */,
 				5894DFA724BE3F01000C8E05 /* Error.cpp in Sources */,
@@ -348,6 +359,7 @@
 				5894DFAE24BE3F01000C8E05 /* Operator.hpp in Sources */,
 				58626E3024C7630400564C58 /* SPA.cpp in Sources */,
 				5894DFAF24BE3F01000C8E05 /* File IO.cpp in Sources */,
+				588615AB255EDA73008B695B /* Lexer v2.cpp in Sources */,
 				5894DFB024BE3F01000C8E05 /* Timer.hpp in Sources */,
 				5894DFB124BE3F01000C8E05 /* Lexer.hpp in Sources */,
 				5894DFB224BE3F01000C8E05 /* FilePath.hpp in Sources */,

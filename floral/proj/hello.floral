@@ -1,5 +1,6 @@
-#include <io.fh>
-
-func hello() {
-    print("Hello\n");
-}
+#ifndef hello
+#define hello
+// hello.floral
+#line
+#include "/Users/ethanuppal/Library/Mobile Documents/com~apple~CloudDocs/Xcode Projects/floral/floral/proj/main.floral"
+#endif

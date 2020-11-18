@@ -12,6 +12,7 @@
 #include <string>
 
 namespace Floral {
+    const TokenLoc TokenLoc::zero = TokenLoc(0, 0, 0, "");
     Token::Token(TokenLoc loc, TokenType type, const std::string& contents): loc(loc), type(type), contents(contents) {}
     Token::Token(TokenLoc loc, TokenType type, const std::string& contents, const std::vector<FloralWideChar>& _wstr): loc(loc), type(type), contents(contents), _wstr(_wstr) {}
     std::string tokenTypeDescription(TokenType type) {

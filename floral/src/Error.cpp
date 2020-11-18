@@ -14,7 +14,8 @@
 
 namespace Floral {
     void Error::print(const std::string& optionalSource, size_t pathext) const {
-        ColoredStream out;
+        ColoredStream out(std::cerr);
+        
         out.resetAutomatically = true;
         
         std::string pathitem;
@@ -57,5 +58,18 @@ namespace Floral {
         while (*start > 0 && src[*start] != '\n') (*start)--;
         while (end < src.size() && src[end] != '\n') end++;
         return src.substr(*start, end - *start);
+    }
+    void ErrorReporting::report(Error::Domain domain, const std::string &text, const std::string &path, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
+        Error err {domain, text, loc, errloc};
+        err.fix = fix;
+        err.path = path;
+        _errors.push_back(err);
+    }
+    void ErrorReporting::warn(const std::string &text, const std::string &path, TextRegion loc, ErrorLoc errloc, const std::string& fix) {
+        Error err {Error::warning, text, loc, errloc};
+        err.fix = fix;
+        err.path = path;
+        err.isWarning = true;
+        _warnings.push_back(err);
     }
 }

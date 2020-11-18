@@ -20,10 +20,6 @@
 
 namespace Floral {
     class Parser: public ErrorReporting {
-        void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
-        void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
-
-        private:
         std::vector<Token> tokens;
         size_t index;
         

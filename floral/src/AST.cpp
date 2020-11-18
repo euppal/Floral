@@ -14,13 +14,14 @@
 #include "Colors.hpp"
 
 namespace Floral {
-    TextRegion::TextRegion(const Token& value) {
+    TextRegion::TextRegion(const Token& value): path(value.loc.filename) {
         pos = value.pos();
         length = value.contents.size();
         startLine = value.line();
         endLine = value.line();
+        
     }
-    TextRegion::TextRegion(const Token& first, const Token& last) {
+    TextRegion::TextRegion(const Token& first, const Token& last): path(first.loc.filename) {
         pos = first.pos();
         length = last.end() - pos;
         startLine = first.line();
@@ -72,7 +73,7 @@ namespace Floral {
         return _main;
     }
     void File::dump() const {
-        ColoredStream colout;
+        ColoredStream colout(std::cout);
         colout << Color::reset << Color::cyan << "File Constituents:\n" << Color::reset;
         for (auto node: _nodes) {
             std::cout << "- ";
@@ -110,7 +111,7 @@ namespace Floral {
         for (auto stm: _body)
             dealloc(stm);
         for (auto p: _parameters)
-            dealloc(p.type);
+            ;//dealloc(p.type);
         dealloc(_retType);
     }
     void Function::print() const {
@@ -359,7 +360,7 @@ const std::optional<std::string>& deprecationWarning();
         std::cout << "Type Alias Declaration at loc ";
         _loc.describe();
     }
-    const Token& TypeAliasDeclaration::alias() const {
+    Token& TypeAliasDeclaration::alias() {
         return _alias;
     }
     Type* TypeAliasDeclaration::aliased() const {

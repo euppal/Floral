@@ -17,15 +17,16 @@
 #include <optional>
 
 namespace Floral {
-    namespace v2 {
-        class Compiler;
-    }
+    class Compiler;
 
     struct TextRegion {
+        friend struct TokenLoc;
+        
         size_t pos;
         size_t length;
         size_t startLine;
         size_t endLine;
+        const std::string path;
         
         TextRegion(const Token& token);
         TextRegion(const Token& first, const Token& last);
@@ -85,7 +86,7 @@ namespace Floral {
         Type* type;
     };
     struct Function: public Declaration {
-        friend class v2::Compiler;
+        friend class Compiler;
 
         struct Parameter {
             Parameter(const Token& name, Type* type);
@@ -143,7 +144,7 @@ namespace Floral {
         const std::optional<std::string>& deprecationWarning();
     };
     struct FunctionForwardDeclaration: public Declaration {
-        friend class v2::Compiler;
+        friend class Compiler;
         void setRType(Type* newType);
 
         FunctionForwardDeclaration(TextRegion loc, const Token& name, const Function::Parameters& parameters, Type* returnType);
@@ -511,7 +512,7 @@ namespace Floral {
         ~TypeAliasDeclaration();
         
         virtual void print() const override;
-        const Token& alias() const;
+        Token& alias();
         Type* aliased() const;
     };
     struct ConstructExpression: public Expression {

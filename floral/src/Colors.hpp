@@ -37,11 +37,12 @@ enum class Color {
 };
 
 struct ColoredStream {
-    ColoredStream() {}
+    ColoredStream(std::ostream& out): cout(out) {}
     
     int foreground, background = 0;
     bool isBold = false;
     bool resetAutomatically = false;
+    std::ostream& cout;
     
     friend ColoredStream& operator <<(ColoredStream& stream, Color color);
     friend ColoredStream& operator <<(ColoredStream& stream, const std::string& str);

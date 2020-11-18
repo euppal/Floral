@@ -16,9 +16,12 @@ namespace Floral {
     struct ErrorLoc {
         size_t pos;
         size_t len;
+        
+        ErrorLoc(size_t pos, size_t len): pos(pos), len(len) {}
     };
     struct Error {
         enum Domain {
+            prepError,
             lexDomain,
             parseDomain,
             generalRejectionDomain,
@@ -42,22 +45,21 @@ namespace Floral {
         void print(const std::string& optionalSource = "", size_t pathext = 3) const;
         
     private:
-        std::string _domainStrings[7] { "Lexical Error", "Parsing Error", "General Rejection Error", "Compiliation Error", "Resolution Error", "Type Error", "Warning" };
+        std::string _domainStrings[8] { "Preprocessing Error", "Lexical Error", "Parsing Error", "General Rejection Error", "Compiliation Error", "Resolution Error", "Type Error", "Warning" };
     };
 
-    class ErrorReporting {
-        virtual void report(Error::Domain domain, const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "") = 0;
-        virtual void warn(const std::string& text, TextRegion loc, ErrorLoc errloc, const std::string& fix = "") = 0;
-
-    protected:
-        std::vector<Error> _errors;
-        std::vector<Error> _warnings;
-        
-    public:
+    struct ErrorReporting {
         virtual bool hasErrors() const = 0;
         virtual const std::vector<Error>& errors() const = 0;
         virtual bool hasWarnings() const = 0;
         virtual const std::vector<Error>& warnings() const = 0;
+        
+    protected:
+        virtual void report(Error::Domain domain, const std::string& text, const std::string& path, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+        virtual void warn(const std::string& text, const std::string& path, TextRegion loc, ErrorLoc errloc, const std::string& fix = "");
+        
+        std::vector<Error> _errors;
+        std::vector<Error> _warnings;
     };
 
     const std::string extractLine(const std::string& src, size_t pos, size_t* start);

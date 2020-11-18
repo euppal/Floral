@@ -12,7 +12,7 @@
 #include <cctype>
 #include <vector>
 #include "File IO.hpp"
-
+/*
 namespace Floral {
     Lexer::Lexer(const std::string &code):
     code(code) {};
@@ -771,3 +771,4 @@ namespace Floral {
         return c;
     }
 }
+*/
